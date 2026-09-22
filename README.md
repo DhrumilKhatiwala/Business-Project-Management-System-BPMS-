@@ -40,7 +40,7 @@ Watch the complete end-to-end operational flow across all three modules in real 
 
 ## ✨ Implemented Core Modules
 
-The system provides complete, working functionality for the first three modules of the **DFD Level 1 architecture**:
+The system provides complete, working functionality for the first three modules of the **DFD Level 1 architecture** with end-to-end integration:
 
 ### 1.0 Manage Accounts & Access
 - **JWT Authentication**: Secure token-based session handling with bcrypt password hashing (cost factor 10+).
@@ -49,20 +49,30 @@ The system provides complete, working functionality for the first three modules 
   - 👷 **Worker**: Dedicated access to assigned projects, personalized task queues (`/my-tasks`), and profile details.
   - 🤝 **Client**: Read-only oversight of contracted projects and milestone progress.
 - **Account Lifecycle Management**: Full user listing with search, filtering by role and status (`ACTIVE` / `INACTIVE`), account deactivation guards, and automated profile initialization for worker accounts.
+- **User Profile & Security Settings (`/profile`)**:
+  - Self-service personal profile management (Full Name, Contact Phone).
+  - Secure in-app password change with current password verification and bcrypt re-hashing.
+  - Persona-specific operational overview: active skills taxonomy & assigned projects for Workers; administrative authority indicators for Business Owners.
 
 ### 2.0 Manage Workforce & Projects
 - **Workforce Directory & Worker Profiles**: Structured tracking of worker positions, customizable skill arrays, active project counts, and direct contact details.
 - **Project Cockpit**: Real-time project status indicators (`NOT_STARTED`, `IN_PROGRESS`, `ON_HOLD`, `COMPLETED`), start/end timeline management, and automatic completion progress calculation.
-- **Task Management**:
+- **Task Management & Interactive Kanban Board**:
+  - Seamless view switcher between **Kanban Board** (`Pending Queue`, `In Progress`, `Completed`) and **List View**.
   - Tasks categorized by priority levels (`LOW`, `MEDIUM`, `HIGH`, `URGENT`).
   - Worker assignments with status progression (`PENDING` ➔ `IN_PROGRESS` ➔ `COMPLETED`).
   - Completing tasks automatically recalculates the parent project's completion percentage.
-- **Milestone Scheduling**: Milestone deadlines and status tracking to ensure stage-gate delivery.
+- **Milestone Scheduling**: Stage-gate milestone timeline with status progression and target deadline tracking.
+- **Project Material Requisition & Allocation (Module 2 ↔ Module 3 Integration)**:
+  - Dedicated **Materials & Resources** project tab tracking inventory items consumed by each project.
+  - Real-time stock availability check preventing over-allocation.
+  - Automatic inventory deduction and `StockUpdate` audit logging with project attribution.
+  - Aggregate project material expense tracking with live budget summary cards.
 - **Field Worker Portal (`/my-tasks`)**: Dedicated view for field workers to review assigned tasks and update status without accessing administrative settings.
 
 ### 3.0 Manage Inventory & Materials
 - **Material Catalog**: Categorized material inventory with minimum stock thresholds, unit costs, stock counts, and supplier attribution.
-- **Status Indicators**: Dynamic badge labels indicating stock health:
+- **Status Indicators & Visual Gauges**: Dynamic badge labels and stock level meters:
   - 🟢 `IN_STOCK`: Quantity safely above minimum threshold.
   - 🟡 `LOW_STOCK`: Quantity at or below safety stock level.
   - 🔴 `OUT_OF_STOCK`: Depleted inventory requiring urgent reorder.
@@ -73,6 +83,15 @@ The system provides complete, working functionality for the first three modules 
 - **Automated Low-Stock Alerts**:
   - Automatically raises active alerts whenever stock drops below threshold.
   - Dedicated alert dashboard (`/inventory/alerts`) with manual and automatic resolution upon restocking.
+  - **1-Click Quick Restock**: Replenish low-stock materials directly from alert notices without leaving the dashboard.
+
+### 🎨 Design System & Corporate Vector Branding
+- **Custom Brand Identity**: Geometric monogram `BrandLogo.jsx` and matching vector `favicon.svg`.
+- **Professional SVG Iconography**: 100% vector SVG icons (`react-icons/hi2`) throughout all tables, buttons, column headers, and empty states.
+- **Tailored Role Dashboards**:
+  - **Business Owner**: Portfolio distribution bars, inventory stock health meters, and urgent alert monitoring.
+  - **Worker**: "My Active & Pending Tasks" board and assigned project progress cards.
+  - **Client**: "Contracted Project Portfolio" with delivery progress meters and milestone tracking.
 
 ---
 
@@ -163,10 +182,10 @@ The database comes pre-seeded with realistic production test data for all three 
 .
 ├── client/
 │   ├── src/
-│   │   ├── components/         # Reusable UI (Modal, Sidebar, ProtectedRoute)
+│   │   ├── components/         # Reusable UI (Modal, Sidebar, ProtectedRoute, BrandLogo)
 │   │   ├── contexts/           # Authentication state context (AuthContext)
 │   │   ├── layouts/            # Dashboard layout shell
-│   │   ├── pages/              # Module pages (Dashboard, Users, Workers, Projects, Inventory)
+│   │   ├── pages/              # Module pages (Dashboard, Users, Workers, Projects, Inventory, Profile)
 │   │   ├── services/           # Axios API service client
 │   │   ├── index.css           # Design tokens, variables & glassmorphic utility classes
 │   │   └── App.jsx             # Route definitions & RBAC gates

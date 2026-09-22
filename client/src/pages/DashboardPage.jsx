@@ -269,51 +269,233 @@ export default function DashboardPage() {
       )}
 
       {user.role === 'WORKER' && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon purple"><HiOutlineClipboardDocumentList /></div>
-            <div className="stat-value">{stats.totalTasks || 0}</div>
-            <div className="stat-label">Total Assigned Tasks</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Worker Stats */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon purple"><HiOutlineClipboardDocumentList /></div>
+              <div className="stat-value">{stats.totalTasks || 0}</div>
+              <div className="stat-label">Total Assigned Tasks</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon yellow"><HiOutlineClock /></div>
+              <div className="stat-value">{stats.pendingTasks || 0}</div>
+              <div className="stat-label">Pending Queue</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon blue"><HiOutlineBriefcase /></div>
+              <div className="stat-value">{stats.inProgressTasks || 0}</div>
+              <div className="stat-label">In Progress</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon green"><HiOutlineCheckCircle /></div>
+              <div className="stat-value">{stats.completedTasks || 0}</div>
+              <div className="stat-label">Completed Tasks</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon purple"><HiOutlineBriefcase /></div>
+              <div className="stat-value">{stats.assignedProjects || 0}</div>
+              <div className="stat-label">Active Projects</div>
+            </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon yellow"><HiOutlineClock /></div>
-            <div className="stat-value">{stats.pendingTasks || 0}</div>
-            <div className="stat-label">Pending Queue</div>
+
+          {/* Active Tasks Queue */}
+          <div className="card">
+            <div className="card-header flex justify-between items-center">
+              <div>
+                <h3>My Active & Pending Tasks</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  High-priority work requiring your attention
+                </p>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/my-tasks')}>
+                <span>View Full Queue</span>
+                <HiOutlineArrowRight />
+              </button>
+            </div>
+
+            {(!data?.myRecentTasks || data.myRecentTasks.length === 0) ? (
+              <div className="empty-state" style={{ padding: '36px 20px' }}>
+                <div className="empty-icon"><HiOutlineCheckCircle /></div>
+                <h3>All caught up!</h3>
+                <p>You have no pending or in-progress tasks assigned.</p>
+              </div>
+            ) : (
+              <div className="table-container" style={{ border: 'none' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Task Title</th>
+                      <th>Priority</th>
+                      <th>Project</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.myRecentTasks.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.title}</td>
+                        <td>
+                          <span className={`badge ${t.priority === 'URGENT' ? 'badge-danger' : t.priority === 'HIGH' ? 'badge-warning' : 'badge-info'}`}>
+                            {t.priority}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge badge-neutral">{t.project?.name || '—'}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                          {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—'}
+                        </td>
+                        <td>
+                          <span className={`badge ${t.status === 'IN_PROGRESS' ? 'badge-info' : 'badge-warning'}`}>
+                            {t.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <div className="stat-card">
-            <div className="stat-icon blue"><HiOutlineBriefcase /></div>
-            <div className="stat-value">{stats.inProgressTasks || 0}</div>
-            <div className="stat-label">In Progress</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon green"><HiOutlineCheckCircle /></div>
-            <div className="stat-value">{stats.completedTasks || 0}</div>
-            <div className="stat-label">Completed Tasks</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon purple"><HiOutlineBriefcase /></div>
-            <div className="stat-value">{stats.assignedProjects || 0}</div>
-            <div className="stat-label">Active Projects</div>
-          </div>
+
+          {/* Assigned Projects */}
+          {data?.myProjects && data.myProjects.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <h3>My Assigned Projects</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  Projects you are currently deployed on
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                {data.myProjects.map((p) => (
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{ background: 'var(--bg-tertiary)', cursor: 'pointer', padding: 18 }}
+                    onClick={() => navigate(`/projects/${p.id}`)}
+                  >
+                    <div className="flex justify-between items-center mb-10">
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</span>
+                      <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>{p.status}</span>
+                    </div>
+                    <div style={{ marginBottom: 6 }} className="flex justify-between text-xs">
+                      <span style={{ color: 'var(--text-muted)' }}>Progress</span>
+                      <strong style={{ color: '#38bdf8' }}>{p.progress}%</strong>
+                    </div>
+                    <div className="progress-bar-wrap" style={{ height: 6 }}>
+                      <div className="progress-bar-fill" style={{ width: `${p.progress}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {user.role === 'CLIENT' && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon blue"><HiOutlineBriefcase /></div>
-            <div className="stat-value">{stats.totalProjects || 0}</div>
-            <div className="stat-label">Total Contracted Projects</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Client Stats */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon blue"><HiOutlineBriefcase /></div>
+              <div className="stat-value">{stats.totalProjects || 0}</div>
+              <div className="stat-label">Total Contracted Projects</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon green"><HiOutlineCheckCircle /></div>
+              <div className="stat-value">{stats.activeProjects || 0}</div>
+              <div className="stat-label">In Execution</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon purple"><HiOutlineCheckCircle /></div>
+              <div className="stat-value">{stats.completedProjects || 0}</div>
+              <div className="stat-label">Delivered Projects</div>
+            </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon green"><HiOutlineCheckCircle /></div>
-            <div className="stat-value">{stats.activeProjects || 0}</div>
-            <div className="stat-label">In Execution</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon purple"><HiOutlineCheckCircle /></div>
-            <div className="stat-value">{stats.completedProjects || 0}</div>
-            <div className="stat-label">Delivered Projects</div>
+
+          {/* Contracted Projects Overview */}
+          <div className="card">
+            <div className="card-header flex justify-between items-center">
+              <div>
+                <h3>Contracted Project Portfolio</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  Real-time status, milestone achievement, and delivery progress
+                </p>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/projects')}>
+                <span>All Projects</span>
+                <HiOutlineArrowRight />
+              </button>
+            </div>
+
+            {(!data?.projects || data.projects.length === 0) ? (
+              <div className="empty-state" style={{ padding: '36px 20px' }}>
+                <div className="empty-icon"><HiOutlineBriefcase /></div>
+                <h3>No active contracts</h3>
+                <p>You have no active projects under contract at this time.</p>
+              </div>
+            ) : (
+              <div className="table-container" style={{ border: 'none' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>Status</th>
+                      <th>Progress</th>
+                      <th>Stage-Gate Milestones</th>
+                      <th>Managed By</th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.projects.map((p) => (
+                      <tr key={p.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</div>
+                          {p.description && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.description.slice(0, 60)}...</div>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge ${p.status === 'COMPLETED' ? 'badge-success' : p.status === 'IN_PROGRESS' ? 'badge-info' : 'badge-warning'}`}>
+                            {p.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td style={{ minWidth: 140 }}>
+                          <div className="flex items-center gap-8">
+                            <div className="progress-bar-wrap" style={{ flex: 1, height: 6 }}>
+                              <div className="progress-bar-fill" style={{ width: `${p.progress}%` }} />
+                            </div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{p.progress}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="badge badge-neutral">
+                            {p._count?.milestones || 0} Milestones
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                          {p.createdBy?.fullName || 'BPMS Operations'}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                            onClick={() => navigate(`/projects/${p.id}`)}
+                          >
+                            View Cockpit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -98,7 +98,12 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="user-info">
+        <div
+          className="user-info"
+          onClick={() => navigate('/profile')}
+          title="Account & Profile Settings"
+          style={{ cursor: 'pointer', borderRadius: 'var(--radius-md)', padding: '4px', transition: 'background 0.2s' }}
+        >
           <div className="user-avatar">
             {user?.fullName?.charAt(0)?.toUpperCase()}
           </div>

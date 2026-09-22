@@ -35,6 +35,8 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
+  updateProfile: (data) => api.put('/auth/profile', data),
+  changePassword: (data) => api.put('/auth/change-password', data),
 };
 
 // ─── Users ───
@@ -64,6 +66,9 @@ export const projectsAPI = {
   update: (id, data) => api.put(`/projects/${id}`, data),
   addAssignment: (projectId, workerId) => api.post(`/projects/${projectId}/assignments`, { workerId }),
   removeAssignment: (projectId, assignmentId) => api.delete(`/projects/${projectId}/assignments/${assignmentId}`),
+  getMaterials: (projectId) => api.get(`/projects/${projectId}/materials`),
+  allocateMaterial: (projectId, data) => api.post(`/projects/${projectId}/materials`, data),
+  removeMaterial: (projectId, allocationId) => api.delete(`/projects/${projectId}/materials/${allocationId}`),
 };
 
 // ─── Tasks ───

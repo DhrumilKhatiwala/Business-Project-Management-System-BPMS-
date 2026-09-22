@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { projectsAPI, tasksAPI, milestonesAPI, workersAPI } from '../services/api';
+import { projectsAPI, tasksAPI, milestonesAPI, workersAPI, materialsAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 import {
@@ -9,7 +9,8 @@ import {
   HiOutlineUserPlus, HiOutlineListBullet, HiOutlineSquares2X2,
   HiOutlineCalendar, HiOutlineUser, HiOutlineCheck, HiOutlineArrowRight,
   HiOutlineClipboardDocumentList, HiOutlineClock, HiOutlinePlayCircle,
-  HiOutlineCheckCircle, HiOutlineFlag, HiOutlineUserGroup
+  HiOutlineCheckCircle, HiOutlineFlag, HiOutlineUserGroup,
+  HiOutlineCube, HiOutlineCurrencyDollar, HiOutlineArchiveBox
 } from 'react-icons/hi2';
 
 export default function ProjectDetailPage() {
@@ -31,12 +32,77 @@ export default function ProjectDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
 
+  // Materials state
+  const [projectMaterials, setProjectMaterials] = useState([]);
+  const [projectMaterialsStats, setProjectMaterialsStats] = useState({ totalItems: 0, totalQuantity: 0, totalCost: 0 });
+  const [inventoryMaterials, setInventoryMaterials] = useState([]);
+  const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [selectedMaterialId, setSelectedMaterialId] = useState('');
+  const [allocateQty, setAllocateQty] = useState('');
+  const [allocating, setAllocating] = useState(false);
+
   const [projectForm, setProjectForm] = useState({});
   const [taskForm, setTaskForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '', assignedToId: '' });
   const [milestoneForm, setMilestoneForm] = useState({ title: '', description: '', dueDate: '' });
   const [selectedWorker, setSelectedWorker] = useState('');
 
-  useEffect(() => { loadProject(); }, [id]);
+  useEffect(() => {
+    loadProject();
+    loadProjectMaterials();
+  }, [id]);
+
+  const loadProjectMaterials = async () => {
+    try {
+      const res = await projectsAPI.getMaterials(id);
+      setProjectMaterials(res.data.allocations || []);
+      setProjectMaterialsStats(res.data.stats || { totalItems: 0, totalQuantity: 0, totalCost: 0 });
+    } catch (err) {
+      console.error('Failed to load project materials:', err);
+    }
+  };
+
+  const openAllocateMaterial = async () => {
+    try {
+      const res = await materialsAPI.list({ status: 'ACTIVE' });
+      setInventoryMaterials(res.data.materials || res.data || []);
+      setSelectedMaterialId('');
+      setAllocateQty('');
+      setShowMaterialModal(true);
+    } catch (err) {
+      toast.error('Failed to load inventory materials.');
+    }
+  };
+
+  const handleAllocateMaterial = async (e) => {
+    e.preventDefault();
+    if (!selectedMaterialId || !allocateQty || parseInt(allocateQty, 10) <= 0) {
+      return toast.error('Please select a material and enter a valid quantity.');
+    }
+    setAllocating(true);
+    try {
+      await projectsAPI.allocateMaterial(id, { materialId: selectedMaterialId, quantity: parseInt(allocateQty, 10) });
+      toast.success('Material allocated to project!');
+      setShowMaterialModal(false);
+      loadProjectMaterials();
+      loadProject();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to allocate material.');
+    } finally {
+      setAllocating(false);
+    }
+  };
+
+  const handleRemoveMaterial = async (allocationId) => {
+    if (!window.confirm('Return this material back to inventory?')) return;
+    try {
+      await projectsAPI.removeMaterial(id, allocationId);
+      toast.success('Material returned to inventory!');
+      loadProjectMaterials();
+      loadProject();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to return material.');
+    }
+  };
 
   const loadProject = async () => {
     try {
@@ -274,6 +340,9 @@ export default function ProjectDetailPage() {
         </button>
         <button className={`tab ${tab === 'team' ? 'active' : ''}`} onClick={() => setTab('team')}>
           Team Roster ({project.assignments?.length || 0})
+        </button>
+        <button className={`tab ${tab === 'materials' ? 'active' : ''}`} onClick={() => setTab('materials')}>
+          Materials & Resources ({projectMaterials.length})
         </button>
       </div>
 
@@ -630,6 +699,127 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* ── Materials Tab ── */}
+      {tab === 'materials' && (
+        <div>
+          <div className="flex justify-between items-center mb-16" style={{ flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h3 style={{ color: 'var(--text-secondary)' }}>Project Materials & Requisitions</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                Track inventory resources allocated to this project and monitor material expenditures
+              </p>
+            </div>
+            {isOwner && (
+              <button className="btn btn-primary btn-sm" onClick={openAllocateMaterial}>
+                <HiOutlinePlus /> Allocate Material
+              </button>
+            )}
+          </div>
+
+          {/* Aggregate Material Cost Stats */}
+          {projectMaterials.length > 0 && (
+            <div className="stats-grid mb-24" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div className="stat-card" style={{ padding: '16px 20px' }}>
+                <div className="stat-icon blue" style={{ width: 40, height: 40, fontSize: '1.1rem' }}>
+                  <HiOutlineCube />
+                </div>
+                <div className="stat-value" style={{ fontSize: '1.5rem' }}>{projectMaterialsStats.totalItems}</div>
+                <div className="stat-label">Allocated Types</div>
+              </div>
+              <div className="stat-card" style={{ padding: '16px 20px' }}>
+                <div className="stat-icon purple" style={{ width: 40, height: 40, fontSize: '1.1rem' }}>
+                  <HiOutlineArchiveBox />
+                </div>
+                <div className="stat-value" style={{ fontSize: '1.5rem' }}>{projectMaterialsStats.totalQuantity}</div>
+                <div className="stat-label">Total Units Used</div>
+              </div>
+              <div className="stat-card" style={{ padding: '16px 20px' }}>
+                <div className="stat-icon green" style={{ width: 40, height: 40, fontSize: '1.1rem' }}>
+                  <HiOutlineCurrencyDollar />
+                </div>
+                <div className="stat-value" style={{ fontSize: '1.5rem', color: '#34d399' }}>
+                  ${projectMaterialsStats.totalCost.toFixed(2)}
+                </div>
+                <div className="stat-label">Total Material Expense</div>
+              </div>
+            </div>
+          )}
+
+          {projectMaterials.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><HiOutlineCube /></div>
+              <h3>No materials allocated yet</h3>
+              <p>Allocate inventory materials such as cement, steel, or equipment to track project costs.</p>
+              {isOwner && (
+                <button className="btn btn-primary btn-sm" onClick={openAllocateMaterial}>
+                  <HiOutlinePlus /> Allocate First Material
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Material</th>
+                    <th>Category</th>
+                    <th>Quantity Allocated</th>
+                    <th>Unit Cost</th>
+                    <th>Total Value</th>
+                    <th>Allocated Date</th>
+                    {isOwner && <th style={{ textAlign: 'right' }}>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectMaterials.map((pm) => {
+                    const lineTotal = (pm.quantity * (pm.material?.costPerUnit || 0)).toFixed(2);
+                    return (
+                      <tr key={pm.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{pm.material?.name}</div>
+                          {pm.material?.supplier && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Supplier: {pm.material.supplier}</div>
+                          )}
+                        </td>
+                        <td>
+                          <span className="badge badge-neutral">{pm.material?.category || 'General'}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {pm.quantity} {pm.material?.unit || 'units'}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>
+                          ${(pm.material?.costPerUnit || 0).toFixed(2)} / {pm.material?.unit || 'unit'}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 700, color: '#34d399' }}>${lineTotal}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                          {new Date(pm.allocatedAt).toLocaleDateString()}
+                        </td>
+                        {isOwner && (
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handleRemoveMaterial(pm.id)}
+                              title="Return material to inventory"
+                              style={{ color: 'var(--danger)' }}
+                            >
+                              <HiOutlineTrash /> Return
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Modals ── */}
       <Modal isOpen={showEditProject} onClose={() => setShowEditProject(false)} title="Edit Project"
         footer={<><button className="btn btn-secondary" onClick={() => setShowEditProject(false)}>Cancel</button><button className="btn btn-primary" onClick={handleUpdateProject}>Save Changes</button></>}>
@@ -692,6 +882,103 @@ export default function ProjectDetailPage() {
             </select>
           </div>
         )}
+      </Modal>
+
+      {/* ── Allocate Material Modal ── */}
+      <Modal
+        isOpen={showMaterialModal}
+        onClose={() => setShowMaterialModal(false)}
+        title="Allocate Material from Inventory"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowMaterialModal(false)}>Cancel</button>
+            <button
+              className="btn btn-primary"
+              onClick={handleAllocateMaterial}
+              disabled={allocating || !selectedMaterialId || !allocateQty || parseInt(allocateQty, 10) <= 0}
+            >
+              {allocating ? 'Allocating...' : 'Confirm Allocation'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-group mb-16">
+          <label className="form-label">Select Inventory Material *</label>
+          <select
+            className="form-select"
+            value={selectedMaterialId}
+            onChange={(e) => setSelectedMaterialId(e.target.value)}
+            required
+          >
+            <option value="">-- Choose an active inventory item --</option>
+            {inventoryMaterials.map((m) => (
+              <option key={m.id} value={m.id} disabled={m.quantity <= 0}>
+                {m.name} ({m.quantity} {m.unit} in stock - ${m.costPerUnit.toFixed(2)}/{m.unit}) {m.quantity <= 0 ? '(Out of Stock)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {(() => {
+          const mat = inventoryMaterials.find(m => m.id === selectedMaterialId);
+          if (!mat) return null;
+          return (
+            <div>
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px 16px',
+                marginBottom: 16,
+                fontSize: '0.85rem',
+                display: 'flex',
+                justifyContent: 'space-between'
+              }}>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Available Stock:</div>
+                  <strong style={{ color: mat.quantity <= mat.minStockLevel ? '#f59e0b' : '#34d399' }}>
+                    {mat.quantity} {mat.unit}
+                  </strong>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Unit Cost:</div>
+                  <strong style={{ color: 'var(--text-primary)' }}>${mat.costPerUnit.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)' }}>Supplier:</div>
+                  <span style={{ color: 'var(--text-secondary)' }}>{mat.supplier || '—'}</span>
+                </div>
+              </div>
+
+              <div className="form-group mb-16">
+                <label className="form-label">Allocation Quantity ({mat.unit}) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={mat.quantity}
+                  className="form-input"
+                  value={allocateQty}
+                  onChange={(e) => setAllocateQty(e.target.value)}
+                  placeholder={`Max ${mat.quantity} ${mat.unit}`}
+                  required
+                />
+              </div>
+
+              {allocateQty > 0 && (
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--text-secondary)',
+                  background: 'rgba(56, 189, 248, 0.08)',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)'
+                }}>
+                  Estimated Project Expenditure: <strong style={{ color: '#38bdf8' }}>${(allocateQty * mat.costPerUnit).toFixed(2)}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

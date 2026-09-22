@@ -63,6 +63,7 @@ model Project {
   tasks       Task[]
   milestones  Milestone[]
   assignments ProjectAssignment[]
+  materials   ProjectMaterial[]
 
   @@index([status])
   @@index([createdById])
@@ -134,8 +135,9 @@ model Material {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  stockUpdates   StockUpdate[]
-  lowStockAlerts LowStockAlert[]
+  stockUpdates       StockUpdate[]
+  lowStockAlerts     LowStockAlert[]
+  projectAllocations ProjectMaterial[]
 
   @@index([name])
   @@index([category])
@@ -173,4 +175,19 @@ model LowStockAlert {
 
   @@index([materialId])
   @@index([status])
+}
+
+model ProjectMaterial {
+  id          String   @id @default(uuid())
+  projectId   String
+  materialId  String
+  quantity    Int
+  allocatedAt DateTime @default(now())
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, materialId])
+  @@index([projectId])
+  @@index([materialId])
 }

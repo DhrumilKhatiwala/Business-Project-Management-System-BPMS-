@@ -65,6 +65,10 @@ router.get('/:id', authenticate, async (req, res) => {
             },
           },
         },
+        materials: {
+          include: { material: true },
+          orderBy: { allocatedAt: 'desc' },
+        },
       },
     });
 
@@ -215,6 +219,206 @@ router.delete('/:id/assignments/:assignmentId', authenticate, authorize('BUSINES
   } catch (error) {
     console.error('Remove assignment error:', error);
     res.status(500).json({ error: 'Failed to remove assignment.' });
+  }
+});
+
+// Helper: Check and manage low-stock alerts
+async function syncLowStockAlert(materialId) {
+  const material = await prisma.material.findUnique({ where: { id: materialId } });
+  if (!material) return;
+
+  if (material.quantity <= material.minStockLevel) {
+    const existing = await prisma.lowStockAlert.findFirst({
+      where: { materialId, status: 'ACTIVE' },
+    });
+    if (!existing) {
+      await prisma.lowStockAlert.create({
+        data: {
+          materialId,
+          currentQuantity: material.quantity,
+          minStockLevel: material.minStockLevel,
+        },
+      });
+    } else {
+      await prisma.lowStockAlert.update({
+        where: { id: existing.id },
+        data: { currentQuantity: material.quantity },
+      });
+    }
+  } else {
+    await prisma.lowStockAlert.updateMany({
+      where: { materialId, status: 'ACTIVE' },
+      data: { status: 'RESOLVED', resolvedAt: new Date() },
+    });
+  }
+}
+
+// GET /api/projects/:id/materials - List allocated materials and total expenditure
+router.get('/:id/materials', authenticate, async (req, res) => {
+  try {
+    const allocations = await prisma.projectMaterial.findMany({
+      where: { projectId: req.params.id },
+      include: { material: true },
+      orderBy: { allocatedAt: 'desc' },
+    });
+
+    const totalCost = allocations.reduce((sum, item) => {
+      return sum + (item.quantity * (item.material?.costPerUnit || 0));
+    }, 0);
+
+    const totalQuantity = allocations.reduce((sum, item) => sum + item.quantity, 0);
+
+    res.json({
+      allocations,
+      stats: {
+        totalItems: allocations.length,
+        totalQuantity,
+        totalCost: parseFloat(totalCost.toFixed(2)),
+      },
+    });
+  } catch (error) {
+    console.error('List project materials error:', error);
+    res.status(500).json({ error: 'Failed to fetch project materials.' });
+  }
+});
+
+// POST /api/projects/:id/materials - Allocate material from inventory to project
+router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
+  try {
+    const { materialId, quantity } = req.body;
+    const qty = parseInt(quantity, 10);
+
+    if (!materialId || isNaN(qty) || qty <= 0) {
+      return res.status(400).json({ error: 'Valid material and positive quantity are required.' });
+    }
+
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found.' });
+    }
+
+    const material = await prisma.material.findUnique({ where: { id: materialId } });
+    if (!material) {
+      return res.status(404).json({ error: 'Material not found.' });
+    }
+
+    if (material.status !== 'ACTIVE') {
+      return res.status(400).json({ error: 'Cannot allocate inactive material.' });
+    }
+
+    if (material.quantity < qty) {
+      return res.status(400).json({
+        error: `Insufficient stock. Only ${material.quantity} ${material.unit} available in inventory.`,
+      });
+    }
+
+    const previousQty = material.quantity;
+    const newQty = previousQty - qty;
+
+    // Execute atomic allocation
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Decrement material stock
+      const updatedMat = await tx.material.update({
+        where: { id: materialId },
+        data: { quantity: newQty },
+      });
+
+      // 2. Create StockUpdate transaction audit record
+      await tx.stockUpdate.create({
+        data: {
+          materialId,
+          type: 'DEDUCT',
+          quantity: qty,
+          previousQty,
+          newQty,
+          note: `Allocated to Project: ${project.name}`,
+          createdById: req.user.id,
+        },
+      });
+
+      // 3. Upsert ProjectMaterial
+      const existing = await tx.projectMaterial.findUnique({
+        where: { projectId_materialId: { projectId: req.params.id, materialId } },
+      });
+
+      let allocation;
+      if (existing) {
+        allocation = await tx.projectMaterial.update({
+          where: { id: existing.id },
+          data: { quantity: existing.quantity + qty },
+          include: { material: true },
+        });
+      } else {
+        allocation = await tx.projectMaterial.create({
+          data: {
+            projectId: req.params.id,
+            materialId,
+            quantity: qty,
+          },
+          include: { material: true },
+        });
+      }
+
+      return allocation;
+    });
+
+    // Sync low-stock alerts
+    await syncLowStockAlert(materialId);
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Allocate material error:', error);
+    res.status(500).json({ error: 'Failed to allocate material to project.' });
+  }
+});
+
+// DELETE /api/projects/:id/materials/:allocationId - Return material back to inventory
+router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
+  try {
+    const allocation = await prisma.projectMaterial.findUnique({
+      where: { id: req.params.allocationId },
+      include: { material: true, project: true },
+    });
+
+    if (!allocation) {
+      return res.status(404).json({ error: 'Allocation not found.' });
+    }
+
+    const returnQty = allocation.quantity;
+    const previousQty = allocation.material.quantity;
+    const newQty = previousQty + returnQty;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete allocation
+      await tx.projectMaterial.delete({ where: { id: req.params.allocationId } });
+
+      // 2. Return quantity to inventory
+      await tx.material.update({
+        where: { id: allocation.materialId },
+        data: { quantity: newQty },
+      });
+
+      // 3. Record stock update audit log
+      await tx.stockUpdate.create({
+        data: {
+          materialId: allocation.materialId,
+          type: 'ADD',
+          quantity: returnQty,
+          previousQty,
+          newQty,
+          note: `Deallocated & returned from Project: ${allocation.project.name}`,
+          createdById: req.user.id,
+        },
+      });
+    });
+
+    // Sync alerts
+    await syncLowStockAlert(allocation.materialId);
+
+    res.json({ message: 'Material deallocated and returned to inventory.' });
+  } catch (error) {
+    console.error('Deallocate material error:', error);
+    res.status(500).json({ error: 'Failed to deallocate material.' });
   }
 });
 

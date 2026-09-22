@@ -14,6 +14,7 @@ import MyTasksPage from './pages/MyTasksPage';
 import InventoryPage from './pages/InventoryPage';
 import MaterialDetailPage from './pages/MaterialDetailPage';
 import AlertsPage from './pages/AlertsPage';
+import ProfilePage from './pages/ProfilePage';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
         {/* Module 1 — Accounts */}
         <Route path="/accounts/users" element={
