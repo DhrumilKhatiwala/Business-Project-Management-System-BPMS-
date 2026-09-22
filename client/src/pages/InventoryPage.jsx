@@ -172,7 +172,7 @@ export default function InventoryPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : materials.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📦</div>
+          <div className="empty-icon"><HiOutlineCube /></div>
           <h3>No materials match criteria</h3>
           <p>Try adjusting your search query or category filter.</p>
           <button className="btn btn-primary" onClick={openCreate} style={{ marginTop: 12 }}>

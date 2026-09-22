@@ -149,7 +149,10 @@ export default function DashboardPage() {
             {/* Project Portfolio Distribution */}
             <div className="distribution-card">
               <div className="distribution-header">
-                <span className="distribution-title">📁 Project Portfolio Status</span>
+                <span className="distribution-title flex items-center gap-8">
+                  <HiOutlineBriefcase style={{ color: '#38bdf8' }} />
+                  <span>Project Portfolio Status</span>
+                </span>
                 <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{projStats.totalProjects || 0} total</span>
               </div>
               <div className="distribution-bar">
@@ -176,7 +179,10 @@ export default function DashboardPage() {
             {/* Inventory Health Meter */}
             <div className="distribution-card">
               <div className="distribution-header">
-                <span className="distribution-title">📦 Inventory Stock Health</span>
+                <span className="distribution-title flex items-center gap-8">
+                  <HiOutlineCube style={{ color: '#10b981' }} />
+                  <span>Inventory Stock Health</span>
+                </span>
                 <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{invStats.totalMaterials || 0} items</span>
               </div>
               <div className="distribution-bar">
@@ -247,7 +253,7 @@ export default function DashboardPage() {
                           <button
                             className="btn btn-secondary btn-sm"
                             style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                            onClick={() => navigate(`/inventory/${a.material.id}`)}
+                            onClick={() => navigate(`/inventory/materials/${a.material.id}`)}
                           >
                             Restock
                           </button>

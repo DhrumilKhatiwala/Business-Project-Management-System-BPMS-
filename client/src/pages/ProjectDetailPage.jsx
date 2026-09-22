@@ -7,7 +7,9 @@ import toast from 'react-hot-toast';
 import {
   HiOutlineArrowLeft, HiOutlinePencil, HiOutlinePlus, HiOutlineTrash,
   HiOutlineUserPlus, HiOutlineListBullet, HiOutlineSquares2X2,
-  HiOutlineCalendar, HiOutlineUser, HiOutlineCheck, HiOutlineArrowRight
+  HiOutlineCalendar, HiOutlineUser, HiOutlineCheck, HiOutlineArrowRight,
+  HiOutlineClipboardDocumentList, HiOutlineClock, HiOutlinePlayCircle,
+  HiOutlineCheckCircle, HiOutlineFlag, HiOutlineUserGroup
 } from 'react-icons/hi2';
 
 export default function ProjectDetailPage() {
@@ -312,7 +314,7 @@ export default function ProjectDetailPage() {
 
           {(!project.tasks || project.tasks.length === 0) ? (
             <div className="empty-state">
-              <div className="empty-icon">📋</div>
+              <div className="empty-icon"><HiOutlineClipboardDocumentList /></div>
               <h3>No tasks created yet</h3>
               <p>Create tasks and assign them to your workforce to track project progress.</p>
             </div>
@@ -323,7 +325,8 @@ export default function ProjectDetailPage() {
               <div className="kanban-col pending">
                 <div className="kanban-col-header">
                   <div className="kanban-col-title">
-                    <span>⏳ Pending Queue</span>
+                    <HiOutlineClock style={{ color: '#f59e0b', fontSize: '1.1rem' }} />
+                    <span>Pending Queue</span>
                   </div>
                   <span className="kanban-col-count">{pendingTasks.length}</span>
                 </div>
@@ -376,7 +379,8 @@ export default function ProjectDetailPage() {
               <div className="kanban-col in-progress">
                 <div className="kanban-col-header">
                   <div className="kanban-col-title">
-                    <span>⚡ In Progress</span>
+                    <HiOutlinePlayCircle style={{ color: '#60a5fa', fontSize: '1.1rem' }} />
+                    <span>In Progress</span>
                   </div>
                   <span className="kanban-col-count">{inProgressTasks.length}</span>
                 </div>
@@ -432,7 +436,8 @@ export default function ProjectDetailPage() {
               <div className="kanban-col completed">
                 <div className="kanban-col-header">
                   <div className="kanban-col-title">
-                    <span>✅ Completed</span>
+                    <HiOutlineCheckCircle style={{ color: '#34d399', fontSize: '1.1rem' }} />
+                    <span>Completed</span>
                   </div>
                   <span className="kanban-col-count">{completedTasks.length}</span>
                 </div>
@@ -527,7 +532,7 @@ export default function ProjectDetailPage() {
           )}
           {(!project.milestones || project.milestones.length === 0) ? (
             <div className="empty-state">
-              <div className="empty-icon">🏁</div>
+              <div className="empty-icon"><HiOutlineFlag /></div>
               <h3>No milestones scheduled</h3>
               <p>Add key stage gates and project deadlines to track critical paths.</p>
             </div>
@@ -539,7 +544,7 @@ export default function ProjectDetailPage() {
                   className={`timeline-step ${m.status === 'COMPLETED' ? 'completed' : m.status === 'IN_PROGRESS' ? 'in-progress' : 'pending'}`}
                 >
                   <div className="timeline-node">
-                    {m.status === 'COMPLETED' ? '✓' : '●'}
+                    {m.status === 'COMPLETED' ? <HiOutlineCheck style={{ strokeWidth: 3 }} /> : <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'currentColor' }} />}
                   </div>
                   <div className="timeline-content flex justify-between items-center">
                     <div>
@@ -593,7 +598,7 @@ export default function ProjectDetailPage() {
           )}
           {(!project.assignments || project.assignments.length === 0) ? (
             <div className="empty-state">
-              <div className="empty-icon">👥</div>
+              <div className="empty-icon"><HiOutlineUserGroup /></div>
               <h3>No team members assigned yet</h3>
               <p>Assign qualified field workers to begin delegating tasks.</p>
             </div>

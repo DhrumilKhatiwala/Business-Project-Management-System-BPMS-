@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import BrandLogo from '../components/BrandLogo';
 import toast from 'react-hot-toast';
-import { HiOutlineSparkles, HiOutlineArrowRight } from 'react-icons/hi2';
+import {
+  HiOutlineSparkles,
+  HiOutlineArrowRight,
+  HiOutlineShieldCheck,
+  HiOutlineWrenchScrewdriver,
+  HiOutlineBuildingOffice2
+} from 'react-icons/hi2';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +21,7 @@ export default function LoginPage() {
   const handleDemoFill = (demoEmail, demoPass) => {
     setEmail(demoEmail);
     setPassword(demoPass);
-    toast('Credentials filled!', { icon: '✨' });
+    toast.success('Demo credentials applied.');
   };
 
   const handleSubmit = async (e) => {
@@ -39,19 +46,8 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="logo">
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 48,
-            height: 48,
-            borderRadius: 14,
-            background: 'var(--accent-gradient)',
-            boxShadow: '0 0 24px rgba(99, 102, 241, 0.4)',
-            marginBottom: 12,
-            fontSize: '1.4rem'
-          }}>
-            🏢
+          <div style={{ marginBottom: 14 }}>
+            <BrandLogo size={52} />
           </div>
           <h1>BPMS</h1>
           <p>Business & Project Management System</p>
@@ -59,7 +55,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">Work Email</label>
             <input
               type="email"
               className="form-input"
@@ -94,7 +90,7 @@ export default function LoginPage() {
         <div className="demo-chips-box">
           <div className="demo-chips-label">
             <HiOutlineSparkles style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            1-Click Demo Accounts
+            Instant Demo Profiles
           </div>
           <div className="demo-chips-grid">
             <button
@@ -102,7 +98,7 @@ export default function LoginPage() {
               className="demo-chip-btn"
               onClick={() => handleDemoFill('admin@bpms.com', 'admin123')}
             >
-              <span className="demo-chip-icon">👑</span>
+              <HiOutlineShieldCheck style={{ fontSize: '1.25rem', color: '#818cf8' }} />
               <span className="demo-chip-title">Admin</span>
               <span className="demo-chip-role">Owner</span>
             </button>
@@ -111,7 +107,7 @@ export default function LoginPage() {
               className="demo-chip-btn"
               onClick={() => handleDemoFill('worker@bpms.com', 'worker123')}
             >
-              <span className="demo-chip-icon">👷</span>
+              <HiOutlineWrenchScrewdriver style={{ fontSize: '1.25rem', color: '#60a5fa' }} />
               <span className="demo-chip-title">Worker</span>
               <span className="demo-chip-role">Field Staff</span>
             </button>
@@ -120,7 +116,7 @@ export default function LoginPage() {
               className="demo-chip-btn"
               onClick={() => handleDemoFill('client@bpms.com', 'client123')}
             >
-              <span className="demo-chip-icon">🤝</span>
+              <HiOutlineBuildingOffice2 style={{ fontSize: '1.25rem', color: '#34d399' }} />
               <span className="demo-chip-title">Client</span>
               <span className="demo-chip-role">Stakeholder</span>
             </button>

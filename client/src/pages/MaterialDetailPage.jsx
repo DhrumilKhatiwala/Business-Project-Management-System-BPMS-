@@ -3,7 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { materialsAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlineArrowLeft, HiOutlinePencil, HiOutlinePlus, HiOutlineMinus } from 'react-icons/hi2';
+import {
+  HiOutlineArrowLeft, HiOutlinePencil, HiOutlinePlus,
+  HiOutlineMinus, HiOutlineExclamationTriangle
+} from 'react-icons/hi2';
 
 export default function MaterialDetailPage() {
   const { id } = useParams();
@@ -107,7 +110,7 @@ export default function MaterialDetailPage() {
       {/* Low stock warning */}
       {availability !== 'IN_STOCK' && (
         <div className={`alert ${availability === 'OUT_OF_STOCK' ? 'alert-danger' : 'alert-warning'}`}>
-          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+          <HiOutlineExclamationTriangle style={{ fontSize: '1.4rem', flexShrink: 0 }} />
           <div>
             <strong>{availability === 'OUT_OF_STOCK' ? 'Out of Stock!' : 'Low Stock Warning!'}</strong>
             <br />

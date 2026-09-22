@@ -682,9 +682,23 @@ a:hover {
 }
 
 .empty-state .empty-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.5;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 1.75rem;
+}
+
+.empty-state .empty-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
 }
 
 .empty-state h3 {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlinePencil, HiOutlineArrowPath } from 'react-icons/hi2';
+import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlinePencil, HiOutlineArrowPath, HiOutlineUsers } from 'react-icons/hi2';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -113,7 +113,7 @@ export default function UsersPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : users.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">👥</div>
+          <div className="empty-icon"><HiOutlineUsers /></div>
           <h3>No users found</h3>
           <p>Create your first user to get started.</p>
           <button className="btn btn-primary" onClick={openCreate}><HiOutlinePlus /> Add User</button>

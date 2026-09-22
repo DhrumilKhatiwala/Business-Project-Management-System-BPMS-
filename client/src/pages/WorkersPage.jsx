@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { workersAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { HiOutlineMagnifyingGlass, HiOutlineEye, HiOutlineArrowPath } from 'react-icons/hi2';
+import { HiOutlineMagnifyingGlass, HiOutlineEye, HiOutlineArrowPath, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState([]);
@@ -61,7 +61,7 @@ export default function WorkersPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : workers.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">👷</div>
+          <div className="empty-icon"><HiOutlineWrenchScrewdriver /></div>
           <h3>No workers found</h3>
           <p>Workers are created when you add a user with the Worker role.</p>
         </div>

@@ -4,7 +4,7 @@ import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 import {
   HiOutlineCheckCircle, HiOutlineExclamationTriangle,
-  HiOutlinePlusCircle, HiOutlineArrowRight
+  HiOutlinePlusCircle, HiOutlineArrowRight, HiOutlineShieldCheck
 } from 'react-icons/hi2';
 
 export default function AlertsPage() {
@@ -108,7 +108,7 @@ export default function AlertsPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : alerts.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🛡️</div>
+          <div className="empty-icon"><HiOutlineShieldCheck /></div>
           <h3>Inventory is Healthy</h3>
           <p>{statusFilter === 'ACTIVE' ? 'No active low-stock alerts. All items are safely stocked.' : 'No alerts found in this view.'}</p>
         </div>
@@ -196,7 +196,7 @@ export default function AlertsPage() {
       <Modal
         isOpen={!!restockAlert}
         onClose={() => setRestockAlert(null)}
-        title={`⚡ Quick Restock: ${restockAlert?.material?.name || ''}`}
+        title={`Quick Restock: ${restockAlert?.material?.name || ''}`}
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setRestockAlert(null)}>Cancel</button>

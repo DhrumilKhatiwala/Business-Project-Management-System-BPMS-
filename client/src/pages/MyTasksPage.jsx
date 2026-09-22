@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { workersAPI, tasksAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import { HiOutlineClipboardDocumentList, HiOutlineBriefcase, HiOutlineCalendar } from 'react-icons/hi2';
 
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState([]);
@@ -62,7 +63,7 @@ export default function MyTasksPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : tasks.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📋</div>
+          <div className="empty-icon"><HiOutlineClipboardDocumentList /></div>
           <h3>No tasks assigned</h3>
           <p>You don't have any tasks assigned to you yet.</p>
         </div>
@@ -78,8 +79,8 @@ export default function MyTasksPage() {
                   </div>
                   {t.description && <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: 8 }}>{t.description}</p>}
                   <div className="flex items-center gap-16" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    <span>📁 {t.project?.name || '—'}</span>
-                    {t.dueDate && <span>📅 {new Date(t.dueDate).toLocaleDateString()}</span>}
+                    <span><HiOutlineBriefcase style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t.project?.name || '—'}</span>
+                    {t.dueDate && <span><HiOutlineCalendar style={{ verticalAlign: 'middle', marginRight: 4 }} /> {new Date(t.dueDate).toLocaleDateString()}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-12">

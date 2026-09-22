@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { alertsAPI } from '../services/api';
+import BrandLogo from './BrandLogo';
 import {
   HiOutlineHome,
   HiOutlineUsers,
@@ -11,7 +12,9 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineArrowRightOnRectangle,
   HiOutlineUserGroup,
-  HiOutlineChartBar,
+  HiOutlineShieldCheck,
+  HiOutlineWrenchScrewdriver,
+  HiOutlineBuildingOffice2,
 } from 'react-icons/hi2';
 import './Sidebar.css';
 
@@ -63,22 +66,15 @@ export default function Sidebar() {
     user?.role === 'WORKER' ? workerLinks :
     clientLinks;
 
-  const roleEmoji =
-    user?.role === 'BUSINESS_OWNER' ? '👑' :
-    user?.role === 'WORKER' ? '👷' : '🤝';
+  const roleIcon =
+    user?.role === 'BUSINESS_OWNER' ? <HiOutlineShieldCheck style={{ verticalAlign: 'middle' }} /> :
+    user?.role === 'WORKER' ? <HiOutlineWrenchScrewdriver style={{ verticalAlign: 'middle' }} /> :
+    <HiOutlineBuildingOffice2 style={{ verticalAlign: 'middle' }} />;
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <div className="logo-icon">
-            <HiOutlineChartBar />
-          </div>
-          <div className="logo-text">
-            <span className="logo-name">BPMS</span>
-            <span className="logo-sub">Management System</span>
-          </div>
-        </div>
+        <BrandLogo size={36} showText={true} />
       </div>
 
       <nav className="sidebar-nav">
@@ -109,7 +105,7 @@ export default function Sidebar() {
           <div className="user-details">
             <span className="user-name">{user?.fullName}</span>
             <span className="user-role-badge">
-              <span>{roleEmoji}</span> {user?.role?.replace('_', ' ')}
+              {roleIcon} <span>{user?.role?.replace('_', ' ')}</span>
             </span>
           </div>
         </div>

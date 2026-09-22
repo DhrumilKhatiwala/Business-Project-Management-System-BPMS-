@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { projectsAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineEye } from 'react-icons/hi2';
+import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineEye, HiOutlineBriefcase } from 'react-icons/hi2';
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -82,7 +82,7 @@ export default function ProjectsPage() {
         <div className="loading-container"><div className="spinner" /></div>
       ) : projects.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">📁</div>
+          <div className="empty-icon"><HiOutlineBriefcase /></div>
           <h3>No projects found</h3>
           <p>Create your first project to get started.</p>
           {isOwner && <button className="btn btn-primary" onClick={() => setShowModal(true)}><HiOutlinePlus /> New Project</button>}
