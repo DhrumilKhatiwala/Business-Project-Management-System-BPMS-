@@ -98,6 +98,7 @@ export const materialsAPI = {
 // ─── Alerts ───
 export const alertsAPI = {
   getLowStock: (params) => api.get('/alerts/low-stock', { params }),
+  getLowStockAlerts: (status) => api.get('/alerts/low-stock', { params: typeof status === 'string' ? { status } : status }),
   resolve: (id) => api.patch(`/alerts/${id}/resolve`),
 };
 

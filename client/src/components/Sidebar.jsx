@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { alertsAPI } from '../services/api';
 import {
   HiOutlineHome,
   HiOutlineUsers,
@@ -16,6 +18,15 @@ import './Sidebar.css';
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [activeAlertsCount, setActiveAlertsCount] = useState(0);
+
+  useEffect(() => {
+    if (user?.role === 'BUSINESS_OWNER') {
+      alertsAPI.getLowStock({ status: 'ACTIVE' })
+        .then(res => setActiveAlertsCount(res.data?.length || 0))
+        .catch(() => {});
+    }
+  }, [user?.role]);
 
   const handleLogout = () => {
     logout();
@@ -28,7 +39,12 @@ export default function Sidebar() {
     { to: '/workforce/workers', icon: <HiOutlineUserGroup />, label: 'Workers' },
     { to: '/projects', icon: <HiOutlineBriefcase />, label: 'Projects' },
     { to: '/inventory', icon: <HiOutlineCube />, label: 'Inventory' },
-    { to: '/inventory/alerts', icon: <HiOutlineExclamationTriangle />, label: 'Alerts' },
+    {
+      to: '/inventory/alerts',
+      icon: <HiOutlineExclamationTriangle />,
+      label: 'Alerts',
+      badge: activeAlertsCount > 0 ? activeAlertsCount : null,
+    },
   ];
 
   const workerLinks = [
@@ -47,6 +63,10 @@ export default function Sidebar() {
     user?.role === 'WORKER' ? workerLinks :
     clientLinks;
 
+  const roleEmoji =
+    user?.role === 'BUSINESS_OWNER' ? '👑' :
+    user?.role === 'WORKER' ? '👷' : '🤝';
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -63,7 +83,7 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         <div className="nav-section">
-          <span className="nav-section-label">Menu</span>
+          <span className="nav-section-label">Main Menu</span>
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -73,6 +93,9 @@ export default function Sidebar() {
             >
               <span className="nav-icon">{link.icon}</span>
               <span className="nav-label">{link.label}</span>
+              {link.badge !== null && link.badge !== undefined && (
+                <span className="nav-badge-pill">{link.badge}</span>
+              )}
             </NavLink>
           ))}
         </div>
@@ -85,10 +108,12 @@ export default function Sidebar() {
           </div>
           <div className="user-details">
             <span className="user-name">{user?.fullName}</span>
-            <span className="user-role">{user?.role?.replace('_', ' ')}</span>
+            <span className="user-role-badge">
+              <span>{roleEmoji}</span> {user?.role?.replace('_', ' ')}
+            </span>
           </div>
         </div>
-        <button className="logout-btn" onClick={handleLogout} title="Logout">
+        <button className="logout-btn" onClick={handleLogout} title="Sign Out">
           <HiOutlineArrowRightOnRectangle />
         </button>
       </div>

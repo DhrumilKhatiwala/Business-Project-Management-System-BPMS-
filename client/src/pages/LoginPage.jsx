@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { HiOutlineSparkles, HiOutlineArrowRight } from 'react-icons/hi2';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleDemoFill = (demoEmail, demoPass) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    toast('Credentials filled!', { icon: '✨' });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,35 +39,93 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="logo">
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            background: 'var(--accent-gradient)',
+            boxShadow: '0 0 24px rgba(99, 102, 241, 0.4)',
+            marginBottom: 12,
+            fontSize: '1.4rem'
+          }}>
+            🏢
+          </div>
           <h1>BPMS</h1>
           <p>Business & Project Management System</p>
         </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Email Address</label>
             <input
               type="email"
               className="form-input"
-              placeholder="Enter your email"
+              placeholder="e.g. admin@bpms.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
             />
           </div>
+
           <div className="form-group">
             <label className="form-label">Password</label>
             <input
               type="password"
               className="form-input"
-              placeholder="Enter your password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+
+          <button type="submit" className="btn btn-primary w-full" disabled={loading} style={{ justifyContent: 'center', marginTop: 8 }}>
+            {loading ? 'Signing in...' : (
+              <>
+                <span>Sign In to Dashboard</span>
+                <HiOutlineArrowRight />
+              </>
+            )}
           </button>
         </form>
+
+        <div className="demo-chips-box">
+          <div className="demo-chips-label">
+            <HiOutlineSparkles style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            1-Click Demo Accounts
+          </div>
+          <div className="demo-chips-grid">
+            <button
+              type="button"
+              className="demo-chip-btn"
+              onClick={() => handleDemoFill('admin@bpms.com', 'admin123')}
+            >
+              <span className="demo-chip-icon">👑</span>
+              <span className="demo-chip-title">Admin</span>
+              <span className="demo-chip-role">Owner</span>
+            </button>
+            <button
+              type="button"
+              className="demo-chip-btn"
+              onClick={() => handleDemoFill('worker@bpms.com', 'worker123')}
+            >
+              <span className="demo-chip-icon">👷</span>
+              <span className="demo-chip-title">Worker</span>
+              <span className="demo-chip-role">Field Staff</span>
+            </button>
+            <button
+              type="button"
+              className="demo-chip-btn"
+              onClick={() => handleDemoFill('client@bpms.com', 'client123')}
+            >
+              <span className="demo-chip-icon">🤝</span>
+              <span className="demo-chip-title">Client</span>
+              <span className="demo-chip-role">Stakeholder</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

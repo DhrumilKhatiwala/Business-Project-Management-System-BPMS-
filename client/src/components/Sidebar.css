@@ -98,19 +98,31 @@
 }
 
 .nav-link.active {
-  background: var(--accent-primary-glow);
-  color: var(--accent-primary-hover);
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.16) 0%, rgba(99, 102, 241, 0.04) 100%);
+  color: #ffffff;
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 13px;
 }
 
-.nav-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent-primary);
+.nav-badge-pill {
+  margin-left: auto;
+  background: var(--danger);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  animation: pulse-red 2s infinite;
+}
+
+.user-role-badge {
+  font-size: 0.65rem;
+  color: var(--accent-primary-hover);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  text-transform: capitalize;
 }
 
 .nav-icon {
