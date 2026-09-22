@@ -15,26 +15,30 @@
 
 Watch the complete end-to-end operational flow across all three modules in real time:
 
-![BPMS End-to-End Walkthrough](./docs/screenshots/walkthrough.webp)
+<p align="center">
+  <img src="./docs/screenshots/walkthrough.webp" alt="BPMS End-to-End Walkthrough" width="100%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+</p>
+
+> 💡 *If the animated preview does not play automatically in your markdown reader, you can [open the walkthrough demo video directly](./docs/screenshots/walkthrough.webp).*
 
 ---
 
 ## 📸 Visual Showcase & Screen Demonstrations
 
-| Dashboard Overview | User & Account Access Management |
+| Dashboard Overview | User Profile & Security Settings |
 | :---: | :---: |
-| ![Dashboard Overview](./docs/screenshots/dashboard.png) | ![User Management](./docs/screenshots/user_management.png) |
-| *Role-specific KPI cards, quick statistics, and urgent low-stock alert monitoring.* | *User account CRUD, search/filtering, role assignments, and modal actions.* |
+| ![Dashboard Overview](./docs/screenshots/dashboard.png) | ![User Profile](./docs/screenshots/profile_page.png) |
+| *Role-specific KPI cards, quick statistics, and urgent low-stock alert monitoring.* | *Self-service profile editing, contact details, and secure bcrypt password updates.* |
 
-| Workforce Directory & Worker Profiles | Project Hub & Team Assignments |
+| Workforce Directory & Worker Profiles | Project Hub & Interactive Kanban Board |
 | :---: | :---: |
-| ![Worker Profile](./docs/screenshots/worker_profile.png) | ![Project Details](./docs/screenshots/project_details.png) |
-| *Skills taxonomy tagging, job roles, contact cards, and active assignments.* | *Multi-tab project cockpit: Task priorities, Milestones, and Assigned Team.* |
+| ![Worker Profile](./docs/screenshots/worker_profile.png) | ![Kanban Board](./docs/screenshots/kanban_board.png) |
+| *Skills taxonomy tagging, job roles, contact cards, and active assignments.* | *Drag-and-drop / quick progression Kanban columns with priority badges.* |
 
 | Material Detail & Stock Transaction Audit | Automated Low-Stock Alert System |
 | :---: | :---: |
 | ![Material Details](./docs/screenshots/material_details.png) | ![Inventory Alerts](./docs/screenshots/inventory_alerts.png) |
-| *Stock level indicators, unit costs, and complete ADD/DEDUCT audit trail.* | *Instant threshold trigger detection, alert status filters, and one-click resolution.* |
+| *Stock level indicators, unit costs, and complete ADD/DEDUCT audit trail.* | *Instant threshold trigger detection, alert status filters, and 1-click quick restock.* |
 
 ---
 
