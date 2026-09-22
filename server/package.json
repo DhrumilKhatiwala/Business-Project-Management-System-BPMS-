@@ -1,0 +1,32 @@
+{
+  "name": "bpms-server",
+  "version": "1.0.0",
+  "description": "BPMS Backend Server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "db:push": "node ./node_modules/prisma/build/index.js db push",
+    "db:migrate": "node ./node_modules/prisma/build/index.js migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "node ./node_modules/prisma/build/index.js studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}

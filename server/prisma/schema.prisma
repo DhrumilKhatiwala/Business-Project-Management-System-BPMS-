@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Module 1: Accounts & Access ─────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  fullName  String
+  email     String   @unique
+  password  String
+  role      String   // BUSINESS_OWNER, WORKER, CLIENT
+  phone     String?
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  worker          Worker?
+  createdProjects Project[]     @relation("ProjectCreator")
+  stockUpdates    StockUpdate[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+// ─── Module 2: Workforce & Projects ──────────────────────
+
+model Worker {
+  id       String  @id @default(uuid())
+  userId   String  @unique
+  position String?
+  skills   String? @default("[]") // JSON string of skills array
+  status   String  @default("ACTIVE") // ACTIVE, INACTIVE
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments ProjectAssignment[]
+  tasks       Task[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  status      String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, ON_HOLD, COMPLETED
+  startDate   DateTime?
+  endDate     DateTime?
+  progress    Int       @default(0) // 0-100
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy   User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks       Task[]
+  milestones  Milestone[]
+  assignments ProjectAssignment[]
+
+  @@index([status])
+  @@index([createdById])
+}
+
+model Task {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  status       String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  priority     String    @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  dueDate      DateTime?
+  projectId    String
+  assignedToId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo Worker? @relation(fields: [assignedToId], references: [id])
+
+  @@index([projectId])
+  @@index([assignedToId])
+  @@index([status])
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  projectId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ProjectAssignment {
+  id         String   @id @default(uuid())
+  projectId  String
+  workerId   String
+  assignedAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, workerId])
+  @@index([projectId])
+  @@index([workerId])
+}
+
+// ─── Module 3: Inventory & Materials ─────────────────────
+
+model Material {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  category      String?
+  unit          String   @default("pcs")
+  quantity      Int      @default(0)
+  minStockLevel Int      @default(10)
+  costPerUnit   Float    @default(0)
+  supplier      String?
+  status        String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  stockUpdates   StockUpdate[]
+  lowStockAlerts LowStockAlert[]
+
+  @@index([name])
+  @@index([category])
+  @@index([status])
+}
+
+model StockUpdate {
+  id          String   @id @default(uuid())
+  materialId  String
+  type        String   // ADD, DEDUCT
+  quantity    Int
+  previousQty Int
+  newQty      Int
+  note        String?
+  createdAt   DateTime @default(now())
+  createdById String
+
+  material  Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdById], references: [id])
+
+  @@index([materialId])
+  @@index([createdById])
+}
+
+model LowStockAlert {
+  id              String    @id @default(uuid())
+  materialId      String
+  currentQuantity Int
+  minStockLevel   Int
+  status          String    @default("ACTIVE") // ACTIVE, RESOLVED
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId])
+  @@index([status])
+}
