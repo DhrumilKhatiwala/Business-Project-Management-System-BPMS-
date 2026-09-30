@@ -22,7 +22,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     if (search) {
-      where.name = { contains: search };
+      where.name = { contains: search, mode: 'insensitive' };
     }
     if (status) where.status = status;
 

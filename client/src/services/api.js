@@ -46,16 +46,19 @@ export const usersAPI = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   updateStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
+  delete: (id) => api.delete(`/users/${id}`),
 };
 
 // ─── Workers ───
 export const workersAPI = {
   list: (params) => api.get('/workers', { params }),
   get: (id) => api.get(`/workers/${id}`),
+  create: (data) => api.post('/workers', data),
   getMe: () => api.get('/workers/me'),
   getMyTasks: (params) => api.get('/workers/me/tasks', { params }),
   update: (id, data) => api.put(`/workers/${id}`, data),
   updateStatus: (id, status) => api.patch(`/workers/${id}/status`, { status }),
+  delete: (id) => api.delete(`/workers/${id}`),
 };
 
 // ─── Projects ───

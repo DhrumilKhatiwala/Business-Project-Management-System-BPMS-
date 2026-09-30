@@ -1,17 +1,39 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { usersAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlinePencil, HiOutlineArrowPath, HiOutlineUsers } from 'react-icons/hi2';
+import {
+  HiOutlinePlus,
+  HiOutlineMagnifyingGlass,
+  HiOutlinePencil,
+  HiOutlineArrowPath,
+  HiOutlineTrash,
+  HiOutlineUsers,
+  HiOutlineShieldCheck,
+  HiOutlinePhone,
+  HiOutlineEnvelope,
+} from 'react-icons/hi2';
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState(null);
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', role: 'WORKER', phone: '' });
+
+  const defaultRole = currentUser?.role === 'ADMIN' ? 'BUSINESS_OWNER' : 'WORKER';
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    role: defaultRole,
+    phone: '',
+    position: '',
+    skills: '',
+  });
 
   useEffect(() => { loadUsers(); }, [search, roleFilter]);
 
@@ -28,13 +50,29 @@ export default function UsersPage() {
 
   const openCreate = () => {
     setEditUser(null);
-    setForm({ fullName: '', email: '', password: '', role: 'WORKER', phone: '' });
+    setForm({
+      fullName: '',
+      email: '',
+      password: '',
+      role: defaultRole,
+      phone: '',
+      position: '',
+      skills: '',
+    });
     setShowModal(true);
   };
 
   const openEdit = (u) => {
     setEditUser(u);
-    setForm({ fullName: u.fullName, email: u.email, password: '', role: u.role, phone: u.phone || '' });
+    setForm({
+      fullName: u.fullName,
+      email: u.email,
+      password: '',
+      role: u.role,
+      phone: u.phone || '',
+      position: '',
+      skills: '',
+    });
     setShowModal(true);
   };
 
@@ -44,11 +82,19 @@ export default function UsersPage() {
       if (editUser) {
         const data = { ...form };
         if (!data.password) delete data.password;
+        delete data.position;
+        delete data.skills;
         await usersAPI.update(editUser.id, data);
         toast.success('User updated!');
       } else {
         await usersAPI.create(form);
-        toast.success('User created!');
+        toast.success(
+          form.role === 'BUSINESS_OWNER'
+            ? 'Business Owner created!'
+            : form.role === 'WORKER'
+            ? 'Worker created successfully!'
+            : 'Client created successfully!'
+        );
       }
       setShowModal(false);
       loadUsers();
@@ -68,8 +114,25 @@ export default function UsersPage() {
     }
   };
 
+  const handleDelete = async (u) => {
+    const confirmMsg = isAdmin
+      ? `Are you sure you want to delete Business Owner "${u.fullName}"? This will permanently remove their account and all associated projects.`
+      : `Are you sure you want to delete ${u.role === 'WORKER' ? 'Worker' : 'Client'} "${u.fullName}"?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await usersAPI.delete(u.id);
+      toast.success(`${u.role.replace('_', ' ')} deleted successfully.`);
+      loadUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete user.');
+    }
+  };
+
   const roleBadge = (role) => {
     const map = {
+      ADMIN: 'badge-danger',
       BUSINESS_OWNER: 'badge-purple',
       WORKER: 'badge-info',
       CLIENT: 'badge-success',
@@ -77,46 +140,98 @@ export default function UsersPage() {
     return <span className={`badge ${map[role] || 'badge-neutral'}`}>{role.replace('_', ' ')}</span>;
   };
 
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const isOwner = currentUser?.role === 'BUSINESS_OWNER';
+  const isStaffOrClient = !isAdmin && !isOwner;
+
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1>User Management</h1>
-          <p>Manage all system users and their access</p>
+          <h1>
+            {isAdmin ? 'Business Owners Management' : isOwner ? 'Clients & Users Management' : 'My Business Owner'}
+          </h1>
+          <p>
+            {isAdmin
+              ? 'System Administrator View — Create, manage, and delete Business Owner accounts'
+              : isOwner
+              ? 'Manage Client and Worker accounts for your business operations'
+              : 'Contact details for your business manager & owner'}
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          <HiOutlinePlus /> Add User
-        </button>
+        {(isAdmin || isOwner) && (
+          <button className="btn btn-primary" onClick={openCreate}>
+            <HiOutlinePlus /> {isAdmin ? 'Add Business Owner' : 'Add User'}
+          </button>
+        )}
       </div>
 
-      <div className="filters-bar">
-        <div className="search-bar">
-          <HiOutlineMagnifyingGlass className="search-icon" />
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: 40 }}
-          />
+      {!isStaffOrClient && (
+        <div className="filters-bar">
+          <div className="search-bar">
+            <HiOutlineMagnifyingGlass className="search-icon" />
+            <input
+              type="text"
+              className="form-input"
+              placeholder={isAdmin ? 'Search business owners...' : 'Search clients & workers...'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: 40 }}
+            />
+          </div>
+          {isOwner && (
+            <select className="form-select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+              <option value="">All Roles (Clients & Workers)</option>
+              <option value="WORKER">Workers</option>
+              <option value="CLIENT">Clients</option>
+            </select>
+          )}
         </div>
-        <select className="form-select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-          <option value="">All Roles</option>
-          <option value="BUSINESS_OWNER">Business Owner</option>
-          <option value="WORKER">Worker</option>
-          <option value="CLIENT">Client</option>
-        </select>
-      </div>
+      )}
 
       {loading ? (
         <div className="loading-container"><div className="spinner" /></div>
       ) : users.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon"><HiOutlineUsers /></div>
-          <h3>No users found</h3>
-          <p>Create your first user to get started.</p>
-          <button className="btn btn-primary" onClick={openCreate}><HiOutlinePlus /> Add User</button>
+          <h3>{isAdmin ? 'No Business Owners Found' : 'No Users Found'}</h3>
+          <p>{isAdmin ? 'Add a Business Owner account to get started.' : 'Add your first Client or Worker user.'}</p>
+          {(isAdmin || isOwner) && (
+            <button className="btn btn-primary" onClick={openCreate}><HiOutlinePlus /> Add User</button>
+          )}
+        </div>
+      ) : isStaffOrClient ? (
+        <div className="grid-2">
+          {users.map((u) => (
+            <div key={u.id} className="card" style={{ padding: '24px', display: 'flex', gap: '20px', alignItems: 'center' }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                  color: '#fff',
+                }}
+              >
+                {u.fullName?.charAt(0)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{u.fullName}</h3>
+                  <span className="badge badge-purple"><HiOutlineShieldCheck /> Business Owner</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  <span><HiOutlineEnvelope style={{ verticalAlign: 'middle', marginRight: 6 }} /> {u.email}</span>
+                  {u.phone && <span><HiOutlinePhone style={{ verticalAlign: 'middle', marginRight: 6 }} /> {u.phone}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="table-container">
@@ -155,6 +270,14 @@ export default function UsersPage() {
                       >
                         <HiOutlineArrowPath />
                       </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleDelete(u)}
+                        title="Delete"
+                        style={{ color: '#ef4444' }}
+                      >
+                        <HiOutlineTrash />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -164,50 +287,110 @@ export default function UsersPage() {
         </div>
       )}
 
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={editUser ? 'Edit User' : 'Create User'}
-        footer={
-          <>
-            <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSubmit}>
-              {editUser ? 'Update' : 'Create'}
-            </button>
-          </>
-        }
-      >
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Full Name *</label>
-            <input className="form-input" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />
-          </div>
-          <div className="form-row">
+      {(isAdmin || isOwner) && (
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={editUser ? (isAdmin ? 'Edit Business Owner' : 'Edit User') : (isAdmin ? 'Add Business Owner' : 'Create User')}
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSubmit}>
+                {editUser ? 'Update' : 'Create'}
+              </button>
+            </>
+          }
+        >
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Email *</label>
-              <input type="email" className="form-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              <label className="form-label">Full Name *</label>
+              <input
+                className="form-input"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                placeholder="e.g. John Doe"
+                required
+              />
             </div>
-            <div className="form-group">
-              <label className="form-label">Phone</label>
-              <input className="form-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Email *</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="name@domain.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input
+                  className="form-input"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </div>
             </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">{editUser ? 'New Password (optional)' : 'Password *'}</label>
-              <input type="password" className="form-input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} {...(!editUser && { required: true, minLength: 6 })} placeholder={editUser ? 'Leave blank to keep current' : 'Min 6 characters'} />
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{editUser ? 'New Password (optional)' : 'Password *'}</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  {...(!editUser && { required: true, minLength: 6 })}
+                  placeholder={editUser ? 'Leave blank to keep current' : 'Min 6 characters'}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Role *</label>
+                <select
+                  className="form-select"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  disabled={isAdmin || Boolean(editUser)}
+                >
+                  {isAdmin ? (
+                    <option value="BUSINESS_OWNER">Business Owner</option>
+                  ) : (
+                    <>
+                      <option value="WORKER">Worker</option>
+                      <option value="CLIENT">Client</option>
+                    </>
+                  )}
+                </select>
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Role *</label>
-              <select className="form-select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="BUSINESS_OWNER">Business Owner</option>
-                <option value="WORKER">Worker</option>
-                <option value="CLIENT">Client</option>
-              </select>
-            </div>
-          </div>
-        </form>
-      </Modal>
+
+            {!editUser && form.role === 'WORKER' && (
+              <div className="form-row" style={{ marginTop: 8, paddingTop: 14, borderTop: '1px solid var(--border-color)' }}>
+                <div className="form-group">
+                  <label className="form-label">Worker Position</label>
+                  <input
+                    className="form-input"
+                    value={form.position}
+                    onChange={(e) => setForm({ ...form, position: e.target.value })}
+                    placeholder="e.g. Senior Site Engineer"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Skills (comma-separated)</label>
+                  <input
+                    className="form-input"
+                    value={form.skills}
+                    onChange={(e) => setForm({ ...form, skills: e.target.value })}
+                    placeholder="e.g. Electrical, Plumbing, Safety"
+                  />
+                </div>
+              </div>
+            )}
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

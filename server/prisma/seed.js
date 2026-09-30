@@ -4,30 +4,44 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding MongoDB database...');
 
-  // Clean existing data
+  // Clean existing data (order matters — delete children first)
+  await prisma.projectMaterial.deleteMany();
   await prisma.lowStockAlert.deleteMany();
   await prisma.stockUpdate.deleteMany();
-  await prisma.material.deleteMany();
   await prisma.task.deleteMany();
   await prisma.milestone.deleteMany();
   await prisma.projectAssignment.deleteMany();
   await prisma.project.deleteMany();
+  await prisma.material.deleteMany();
   await prisma.worker.deleteMany();
   await prisma.user.deleteMany();
 
   // 1. MODULE 1: Accounts & Access
   const adminPassword = await bcrypt.hash('admin123', 10);
+  const ownerPassword = await bcrypt.hash('owner123', 10);
   const workerPassword = await bcrypt.hash('worker123', 10);
   const clientPassword = await bcrypt.hash('client123', 10);
+
+  // System Administrator (Super Admin)
+  const systemAdmin = await prisma.user.create({
+    data: {
+      fullName: 'System Administrator',
+      email: 'admin@bpms.com',
+      password: adminPassword,
+      role: 'ADMIN',
+      phone: '+1 (555) 000-0001',
+      status: 'ACTIVE',
+    },
+  });
 
   // Business Owner
   const owner = await prisma.user.create({
     data: {
       fullName: 'Sarah Jenkins (Business Owner)',
-      email: 'admin@bpms.com',
-      password: adminPassword,
+      email: 'owner@bpms.com',
+      password: ownerPassword,
       role: 'BUSINESS_OWNER',
       phone: '+1 (555) 019-2831',
       status: 'ACTIVE',
@@ -157,117 +171,120 @@ async function main() {
     },
   });
 
-  // Project Assignments
-  await prisma.projectAssignment.createMany({
-    data: [
-      { projectId: project1.id, workerId: worker1.id },
-      { projectId: project1.id, workerId: worker2.id },
-      { projectId: project2.id, workerId: worker1.id },
-      { projectId: project2.id, workerId: worker3.id },
-      { projectId: project3.id, workerId: worker3.id },
-    ],
-  });
+  // Project Assignments (individual creates for MongoDB compatibility)
+  const assignmentData = [
+    { projectId: project1.id, workerId: worker1.id },
+    { projectId: project1.id, workerId: worker2.id },
+    { projectId: project2.id, workerId: worker1.id },
+    { projectId: project2.id, workerId: worker3.id },
+    { projectId: project3.id, workerId: worker3.id },
+  ];
+  for (const data of assignmentData) {
+    await prisma.projectAssignment.create({ data });
+  }
 
-  // Milestones
-  await prisma.milestone.createMany({
-    data: [
-      {
-        projectId: project1.id,
-        title: 'Architectural Blueprint Sign-off',
-        description: 'Client approval and municipality permit clearance.',
-        dueDate: new Date('2026-08-20'),
-        status: 'COMPLETED',
-      },
-      {
-        projectId: project1.id,
-        title: 'Structural Steel and Concrete Core',
-        description: 'Floors 1-6 core columns completion.',
-        dueDate: new Date('2026-10-01'),
-        status: 'IN_PROGRESS',
-      },
-      {
-        projectId: project1.id,
-        title: 'Full Electrical & Mechanical Rough-in',
-        description: 'HVAC ducts, fire lines, and electrical conduits.',
-        dueDate: new Date('2026-11-15'),
-        status: 'PENDING',
-      },
-      {
-        projectId: project2.id,
-        title: 'Foundation & Earthwork',
-        description: 'Excavation and foundation curing.',
-        dueDate: new Date('2026-09-30'),
-        status: 'IN_PROGRESS',
-      },
-      {
-        projectId: project2.id,
-        title: 'Framing & Roofing',
-        description: 'Timber framing and water-tight roof installation.',
-        dueDate: new Date('2026-11-30'),
-        status: 'PENDING',
-      },
-    ],
-  });
+  // Milestones (individual creates for MongoDB compatibility)
+  const milestoneData = [
+    {
+      projectId: project1.id,
+      title: 'Architectural Blueprint Sign-off',
+      description: 'Client approval and municipality permit clearance.',
+      dueDate: new Date('2026-08-20'),
+      status: 'COMPLETED',
+    },
+    {
+      projectId: project1.id,
+      title: 'Structural Steel and Concrete Core',
+      description: 'Floors 1-6 core columns completion.',
+      dueDate: new Date('2026-10-01'),
+      status: 'IN_PROGRESS',
+    },
+    {
+      projectId: project1.id,
+      title: 'Full Electrical & Mechanical Rough-in',
+      description: 'HVAC ducts, fire lines, and electrical conduits.',
+      dueDate: new Date('2026-11-15'),
+      status: 'PENDING',
+    },
+    {
+      projectId: project2.id,
+      title: 'Foundation & Earthwork',
+      description: 'Excavation and foundation curing.',
+      dueDate: new Date('2026-09-30'),
+      status: 'IN_PROGRESS',
+    },
+    {
+      projectId: project2.id,
+      title: 'Framing & Roofing',
+      description: 'Timber framing and water-tight roof installation.',
+      dueDate: new Date('2026-11-30'),
+      status: 'PENDING',
+    },
+  ];
+  for (const data of milestoneData) {
+    await prisma.milestone.create({ data });
+  }
 
-  // Tasks
-  await prisma.task.createMany({
-    data: [
-      {
-        projectId: project1.id,
-        assignedToId: worker1.id,
-        title: 'Review CAD structural load calculations',
-        description: 'Verify beam deflection standards for floors 4 through 8.',
-        priority: 'HIGH',
-        status: 'COMPLETED',
-        dueDate: new Date('2026-08-15'),
-      },
-      {
-        projectId: project1.id,
-        assignedToId: worker2.id,
-        title: 'Install 480V main distribution panel',
-        description: 'Connect step-down transformers to main building riser.',
-        priority: 'URGENT',
-        status: 'IN_PROGRESS',
-        dueDate: new Date('2026-09-28'),
-      },
-      {
-        projectId: project1.id,
-        assignedToId: worker1.id,
-        title: 'Site safety inspection for crane operations',
-        description: 'Weekly OSHA compliance check on high-altitude rigging.',
-        priority: 'HIGH',
-        status: 'PENDING',
-        dueDate: new Date('2026-09-30'),
-      },
-      {
-        projectId: project2.id,
-        assignedToId: worker3.id,
-        title: 'Pour grade beam concrete foundations',
-        description: 'Apply high-durability 4000 PSI concrete mix.',
-        priority: 'HIGH',
-        status: 'IN_PROGRESS',
-        dueDate: new Date('2026-09-29'),
-      },
-      {
-        projectId: project2.id,
-        assignedToId: worker1.id,
-        title: 'Soil compaction verification test',
-        description: 'Collect core samples from perimeter retaining walls.',
-        priority: 'MEDIUM',
-        status: 'PENDING',
-        dueDate: new Date('2026-10-05'),
-      },
-      {
-        projectId: project3.id,
-        assignedToId: worker3.id,
-        title: 'Site perimeter fencing & security survey',
-        description: 'Install temporary barriers and staging access gates.',
-        priority: 'LOW',
-        status: 'PENDING',
-        dueDate: new Date('2026-10-20'),
-      },
-    ],
-  });
+  // Tasks (individual creates for MongoDB compatibility)
+  const taskData = [
+    {
+      projectId: project1.id,
+      assignedToId: worker1.id,
+      title: 'Review CAD structural load calculations',
+      description: 'Verify beam deflection standards for floors 4 through 8.',
+      priority: 'HIGH',
+      status: 'COMPLETED',
+      dueDate: new Date('2026-08-15'),
+    },
+    {
+      projectId: project1.id,
+      assignedToId: worker2.id,
+      title: 'Install 480V main distribution panel',
+      description: 'Connect step-down transformers to main building riser.',
+      priority: 'URGENT',
+      status: 'IN_PROGRESS',
+      dueDate: new Date('2026-09-28'),
+    },
+    {
+      projectId: project1.id,
+      assignedToId: worker1.id,
+      title: 'Site safety inspection for crane operations',
+      description: 'Weekly OSHA compliance check on high-altitude rigging.',
+      priority: 'HIGH',
+      status: 'PENDING',
+      dueDate: new Date('2026-09-30'),
+    },
+    {
+      projectId: project2.id,
+      assignedToId: worker3.id,
+      title: 'Pour grade beam concrete foundations',
+      description: 'Apply high-durability 4000 PSI concrete mix.',
+      priority: 'HIGH',
+      status: 'IN_PROGRESS',
+      dueDate: new Date('2026-09-29'),
+    },
+    {
+      projectId: project2.id,
+      assignedToId: worker1.id,
+      title: 'Soil compaction verification test',
+      description: 'Collect core samples from perimeter retaining walls.',
+      priority: 'MEDIUM',
+      status: 'PENDING',
+      dueDate: new Date('2026-10-05'),
+    },
+    {
+      projectId: project3.id,
+      assignedToId: worker3.id,
+      title: 'Site perimeter fencing & security survey',
+      description: 'Install temporary barriers and staging access gates.',
+      priority: 'LOW',
+      status: 'PENDING',
+      dueDate: new Date('2026-10-20'),
+    },
+  ];
+  for (const data of taskData) {
+    await prisma.task.create({ data });
+  }
 
   console.log('✅ Projects, Assignments, Milestones & Tasks seeded');
 
@@ -356,77 +373,80 @@ async function main() {
     },
   });
 
-  // Stock Updates & Low Stock Alerts
-  await prisma.stockUpdate.createMany({
-    data: [
-      {
-        materialId: m1.id,
-        type: 'ADD',
-        quantity: 180,
-        previousQty: 0,
-        newQty: 180,
-        note: 'Initial inventory stocking from National Concrete',
-        createdById: owner.id,
-      },
-      {
-        materialId: m2.id,
-        type: 'ADD',
-        quantity: 50,
-        previousQty: 0,
-        newQty: 50,
-        note: 'Monthly delivery',
-        createdById: owner.id,
-      },
-      {
-        materialId: m2.id,
-        type: 'DEDUCT',
-        quantity: 26,
-        previousQty: 50,
-        newQty: 24,
-        note: 'Dispatched to Commercial HQ Project for column foundation',
-        createdById: owner.id,
-      },
-      {
-        materialId: m3.id,
-        type: 'DEDUCT',
-        quantity: 15,
-        previousQty: 20,
-        newQty: 5,
-        note: 'Used for panel wire harness installation',
-        createdById: owner.id,
-      },
-    ],
-  });
+  // Stock Updates (individual creates for MongoDB compatibility)
+  const stockUpdateData = [
+    {
+      materialId: m1.id,
+      type: 'ADD',
+      quantity: 180,
+      previousQty: 0,
+      newQty: 180,
+      note: 'Initial inventory stocking from National Concrete',
+      createdById: owner.id,
+    },
+    {
+      materialId: m2.id,
+      type: 'ADD',
+      quantity: 50,
+      previousQty: 0,
+      newQty: 50,
+      note: 'Monthly delivery',
+      createdById: owner.id,
+    },
+    {
+      materialId: m2.id,
+      type: 'DEDUCT',
+      quantity: 26,
+      previousQty: 50,
+      newQty: 24,
+      note: 'Dispatched to Commercial HQ Project for column foundation',
+      createdById: owner.id,
+    },
+    {
+      materialId: m3.id,
+      type: 'DEDUCT',
+      quantity: 15,
+      previousQty: 20,
+      newQty: 5,
+      note: 'Used for panel wire harness installation',
+      createdById: owner.id,
+    },
+  ];
+  for (const data of stockUpdateData) {
+    await prisma.stockUpdate.create({ data });
+  }
 
-  // Low Stock Alerts for m2, m3, m4
-  await prisma.lowStockAlert.createMany({
-    data: [
-      {
-        materialId: m2.id,
-        currentQuantity: 24,
-        minStockLevel: 40,
-        status: 'ACTIVE',
-      },
-      {
-        materialId: m3.id,
-        currentQuantity: 5,
-        minStockLevel: 10,
-        status: 'ACTIVE',
-      },
-      {
-        materialId: m4.id,
-        currentQuantity: 0,
-        minStockLevel: 20,
-        status: 'ACTIVE',
-      },
-    ],
-  });
+  // Low Stock Alerts (individual creates for MongoDB compatibility)
+  const alertData = [
+    {
+      materialId: m2.id,
+      currentQuantity: 24,
+      minStockLevel: 40,
+      status: 'ACTIVE',
+    },
+    {
+      materialId: m3.id,
+      currentQuantity: 5,
+      minStockLevel: 10,
+      status: 'ACTIVE',
+    },
+    {
+      materialId: m4.id,
+      currentQuantity: 0,
+      minStockLevel: 20,
+      status: 'ACTIVE',
+    },
+  ];
+  for (const data of alertData) {
+    await prisma.lowStockAlert.create({ data });
+  }
 
   console.log('✅ Inventory, Stock Updates & Low Stock Alerts seeded');
 
-  console.log('\n🎉 Database successfully seeded with real production test data!');
+  console.log('\n🎉 MongoDB database successfully seeded with real production test data!');
   console.log('Credentials:');
-  console.log('  👑 Business Owner : admin@bpms.com  / admin123');
+  console.log('  🛡️ System Admin   : admin@bpms.com  / admin123');
+  console.log('  👑 Business Owner : owner@bpms.com  / owner123');
   console.log('  👷 Worker         : worker@bpms.com / worker123');
   console.log('  🤝 Client         : client@bpms.com / client123');
 }

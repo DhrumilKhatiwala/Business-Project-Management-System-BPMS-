@@ -6,7 +6,7 @@ import {
   HiOutlineUsers, HiOutlineBriefcase, HiOutlineClipboardDocumentList,
   HiOutlineCube, HiOutlineExclamationTriangle, HiOutlineUserGroup,
   HiOutlineCheckCircle, HiOutlineClock, HiOutlinePlus, HiOutlineArrowRight,
-  HiOutlineArrowTrendingUp, HiOutlineCalendar
+  HiOutlineShieldCheck, HiOutlineCalendar, HiOutlineBuildingOffice2
 } from 'react-icons/hi2';
 
 export default function DashboardPage() {
@@ -78,13 +78,19 @@ export default function DashboardPage() {
           <h2>Welcome back, {user.fullName}!</h2>
           <p>
             <span className="pulse-dot" />
-            <span>System Operational</span>
+            <span>{user.role === 'ADMIN' ? 'System Administrator Console' : 'System Operational'}</span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
             <HiOutlineCalendar style={{ verticalAlign: 'middle' }} />
             <span>{todayStr}</span>
           </p>
         </div>
         <div className="welcome-hero-actions">
+          {user.role === 'ADMIN' && (
+            <button className="btn btn-primary btn-sm" onClick={() => navigate('/accounts/users')}>
+              <HiOutlinePlus />
+              <span>Add Business Owner</span>
+            </button>
+          )}
           {user.role === 'BUSINESS_OWNER' && (
             <>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate('/inventory')}>
@@ -106,6 +112,97 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {user.role === 'ADMIN' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Admin Platform Stats */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon purple"><HiOutlineBuildingOffice2 /></div>
+              <div className="stat-value">{stats.totalBusinessOwners || 0}</div>
+              <div className="stat-label">Business Owners</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon green"><HiOutlineCheckCircle /></div>
+              <div className="stat-value">{stats.activeBusinessOwners || 0}</div>
+              <div className="stat-label">Active Business Accounts</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon blue"><HiOutlineUsers /></div>
+              <div className="stat-value">{stats.totalClients || 0}</div>
+              <div className="stat-label">Platform Clients</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon yellow"><HiOutlineUserGroup /></div>
+              <div className="stat-value">{stats.totalWorkers || 0}</div>
+              <div className="stat-label">Platform Workers</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon blue"><HiOutlineBriefcase /></div>
+              <div className="stat-value">{stats.totalProjects || 0}</div>
+              <div className="stat-label">Total Projects</div>
+            </div>
+          </div>
+
+          {/* Business Owners List */}
+          <div className="card">
+            <div className="card-header flex justify-between items-center">
+              <div>
+                <h3>System Business Owners</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  Registered Business Owner accounts under platform administration
+                </p>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/accounts/users')}>
+                <span>Manage All Business Owners</span>
+                <HiOutlineArrowRight />
+              </button>
+            </div>
+
+            {(!data?.recentBusinessOwners || data.recentBusinessOwners.length === 0) ? (
+              <div className="empty-state" style={{ padding: '36px 20px' }}>
+                <div className="empty-icon"><HiOutlineBuildingOffice2 /></div>
+                <h3>No Business Owners Registered</h3>
+                <p>Click below to create the first Business Owner account.</p>
+                <button className="btn btn-primary" onClick={() => navigate('/accounts/users')}>
+                  <HiOutlinePlus /> Add Business Owner
+                </button>
+              </div>
+            ) : (
+              <div className="table-container" style={{ border: 'none' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Full Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                      <th>Created Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.recentBusinessOwners.map((owner) => (
+                      <tr key={owner.id}>
+                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{owner.fullName}</td>
+                        <td>{owner.email}</td>
+                        <td>{owner.phone || '—'}</td>
+                        <td>
+                          <span className={`badge ${owner.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>
+                            {owner.status}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
+                          {new Date(owner.createdAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {user.role === 'BUSINESS_OWNER' && (
         <>
           {/* ── KPI Stat Cards ── */}
@@ -113,7 +210,7 @@ export default function DashboardPage() {
             <div className="stat-card">
               <div className="stat-icon purple"><HiOutlineUsers /></div>
               <div className="stat-value">{stats.totalUsers || 0}</div>
-              <div className="stat-label">Total Accounts</div>
+              <div className="stat-label">Clients & Workers</div>
             </div>
             <div className="stat-card">
               <div className="stat-icon blue"><HiOutlineBriefcase /></div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { workersAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlineArrowLeft, HiOutlinePencil } from 'react-icons/hi2';
+import { HiOutlineArrowLeft, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi2';
 
 export default function WorkerDetailPage() {
   const { id } = useParams();
@@ -42,6 +42,19 @@ export default function WorkerDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete worker "${worker.user.fullName}"? This will unassign all their tasks and delete their profile.`)) {
+      return;
+    }
+    try {
+      await workersAPI.delete(id);
+      toast.success('Worker deleted successfully.');
+      navigate('/workforce/workers');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete worker.');
+    }
+  };
+
   if (loading) return <div className="loading-container"><div className="spinner" /></div>;
   if (!worker) return null;
 
@@ -60,7 +73,10 @@ export default function WorkerDetailPage() {
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{worker.position || 'No position set'}</p>
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => setShowEdit(true)}><HiOutlinePencil /> Edit</button>
+        <div className="flex gap-8">
+          <button className="btn btn-secondary" onClick={() => setShowEdit(true)}><HiOutlinePencil /> Edit</button>
+          <button className="btn btn-danger" onClick={handleDelete}><HiOutlineTrash /> Delete</button>
+        </div>
       </div>
 
       <div className="detail-grid">

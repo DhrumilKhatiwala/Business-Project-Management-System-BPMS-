@@ -8,7 +8,8 @@ import {
   HiOutlineArrowRight,
   HiOutlineShieldCheck,
   HiOutlineWrenchScrewdriver,
-  HiOutlineBuildingOffice2
+  HiOutlineBuildingOffice2,
+  HiOutlineUserGroup,
 } from 'react-icons/hi2';
 
 export default function LoginPage() {
@@ -90,24 +91,33 @@ export default function LoginPage() {
         <div className="demo-chips-box">
           <div className="demo-chips-label">
             <HiOutlineSparkles style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            Instant Demo Profiles
+            Instant Persona Demos
           </div>
-          <div className="demo-chips-grid">
+          <div className="demo-chips-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
             <button
               type="button"
               className="demo-chip-btn"
               onClick={() => handleDemoFill('admin@bpms.com', 'admin123')}
             >
-              <HiOutlineShieldCheck style={{ fontSize: '1.25rem', color: '#818cf8' }} />
-              <span className="demo-chip-title">Admin</span>
-              <span className="demo-chip-role">Owner</span>
+              <HiOutlineShieldCheck style={{ fontSize: '1.2rem', color: '#c084fc' }} />
+              <span className="demo-chip-title">Sys Admin</span>
+              <span className="demo-chip-role">Platform</span>
+            </button>
+            <button
+              type="button"
+              className="demo-chip-btn"
+              onClick={() => handleDemoFill('owner@bpms.com', 'owner123')}
+            >
+              <HiOutlineBuildingOffice2 style={{ fontSize: '1.2rem', color: '#818cf8' }} />
+              <span className="demo-chip-title">Owner</span>
+              <span className="demo-chip-role">Business</span>
             </button>
             <button
               type="button"
               className="demo-chip-btn"
               onClick={() => handleDemoFill('worker@bpms.com', 'worker123')}
             >
-              <HiOutlineWrenchScrewdriver style={{ fontSize: '1.25rem', color: '#60a5fa' }} />
+              <HiOutlineWrenchScrewdriver style={{ fontSize: '1.2rem', color: '#60a5fa' }} />
               <span className="demo-chip-title">Worker</span>
               <span className="demo-chip-role">Field Staff</span>
             </button>
@@ -116,9 +126,9 @@ export default function LoginPage() {
               className="demo-chip-btn"
               onClick={() => handleDemoFill('client@bpms.com', 'client123')}
             >
-              <HiOutlineBuildingOffice2 style={{ fontSize: '1.25rem', color: '#34d399' }} />
+              <HiOutlineUserGroup style={{ fontSize: '1.2rem', color: '#34d399' }} />
               <span className="demo-chip-title">Client</span>
-              <span className="demo-chip-role">Stakeholder</span>
+              <span className="demo-chip-role">Customer</span>
             </button>
           </div>
         </div>

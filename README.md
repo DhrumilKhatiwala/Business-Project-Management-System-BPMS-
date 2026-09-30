@@ -1,12 +1,12 @@
 # 🌟 Business & Project Management System (BPMS)
 
-> **A modern, full-stack Business and Project Management System built with React 19, Node.js/Express REST API, and Prisma ORM with SQLite. Implements core operational workflows for account access, workforce & project lifecycle tracking, and inventory materials management.**
+> **A modern, full-stack Business and Project Management System built with React 19, Node.js/Express REST API, and Prisma ORM with MongoDB Atlas. Implements core operational workflows for account access, workforce & project lifecycle tracking, and inventory materials management.**
 
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-5.2-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-5.22-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
-[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-8.0-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 
 ---
@@ -121,6 +121,7 @@ The system provides complete, working functionality for the first three modules 
 
 ### Prerequisites
 - **Node.js** (v18 or higher recommended; tested on v24)
+- **MongoDB Atlas** account (free tier is sufficient) — [Create one here](https://www.mongodb.com/cloud/atlas/register)
 - **npm** (v9 or higher)
 
 ### Installation & Setup
@@ -131,17 +132,25 @@ The system provides complete, working functionality for the first three modules 
    cd "Business & Project Management System (BPMS)"
    ```
 
-2. **Configure and seed the backend database:**
+2. **Configure the backend:**
    ```bash
    cd server
    npm install
    
-   # Synchronize Prisma schema and seed initial production test data
+   # Copy environment template and configure your MongoDB Atlas connection
+   cp .env.example .env
+   # Edit .env and set your DATABASE_URL to your MongoDB Atlas connection string
+   # Example: mongodb+srv://myuser:mypassword@cluster0.xxxxx.mongodb.net/bpms?retryWrites=true&w=majority
+   ```
+
+3. **Push schema and seed the database:**
+   ```bash
+   # Synchronize Prisma schema to MongoDB and seed initial production test data
    npm run db:push
    npm run db:seed
    ```
 
-3. **Install frontend dependencies:**
+4. **Install frontend dependencies:**
    ```bash
    cd ../client
    npm install
@@ -170,13 +179,14 @@ npm run dev
 
 ## 🔑 Default Login Credentials
 
-The database comes pre-seeded with realistic production test data for all three roles:
+The database comes pre-seeded with realistic production test data for all four roles:
 
 | Role | Email | Password | Access Scope |
 |---|---|---|---|
-| 👑 **Business Owner** | `admin@bpms.com` | `admin123` | Full administrative control (All modules) |
-| 👷 **Worker** | `worker@bpms.com` | `worker123` | Assigned projects, worker profile, `/my-tasks` |
-| 🤝 **Client** | `client@bpms.com` | `client123` | Client dashboard & project milestone visibility |
+| 🛡️ **System Admin** | `admin@bpms.com` | `admin123` | Platform Admin — Accesses & manages **Business Owners** only |
+| 👑 **Business Owner** | `owner@bpms.com` | `owner123` | Business Operations — Accesses & manages **Clients**, **Workers**, Projects, Tasks & Inventory |
+| 👷 **Worker** | `worker@bpms.com` | `worker123` | Field Staff — Accesses **Business Owner** contact & assigned tasks/projects |
+| 🤝 **Client** | `client@bpms.com` | `client123` | Customer — Accesses **Business Owner** contact & contracted project progress |
 
 ---
 
@@ -197,8 +207,7 @@ The database comes pre-seeded with realistic production test data for all three 
 │   └── vite.config.js          # Vite config with backend API reverse proxy
 ├── server/
 │   ├── prisma/
-│   │   ├── schema.prisma       # Prisma data model & SQLite datasource
-│   │   ├── dev.db              # SQLite database file
+│   │   ├── schema.prisma       # Prisma data model & MongoDB datasource
 │   │   └── seed.js             # Realistic test data seeder
 │   └── src/
 │       ├── middleware/         # Auth & RBAC validation middleware

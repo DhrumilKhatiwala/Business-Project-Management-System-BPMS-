@@ -12,13 +12,12 @@ node_modules/
 !.env.example
 !*/.env.example
 
-# Database Files
+# Database (MongoDB Atlas — no local DB files to ignore)
+# Legacy SQLite files (if any remain from migration)
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
-server/prisma/*.db
-server/prisma/*.db-journal
 
 # Production Builds
 dist/

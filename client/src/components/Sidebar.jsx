@@ -15,6 +15,7 @@ import {
   HiOutlineShieldCheck,
   HiOutlineWrenchScrewdriver,
   HiOutlineBuildingOffice2,
+  HiOutlineUserCircle,
 } from 'react-icons/hi2';
 import './Sidebar.css';
 
@@ -36,9 +37,14 @@ export default function Sidebar() {
     navigate('/login');
   };
 
+  const adminLinks = [
+    { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
+    { to: '/accounts/users', icon: <HiOutlineUsers />, label: 'Business Owners' },
+  ];
+
   const ownerLinks = [
     { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
-    { to: '/accounts/users', icon: <HiOutlineUsers />, label: 'Users' },
+    { to: '/accounts/users', icon: <HiOutlineUsers />, label: 'Clients & Users' },
     { to: '/workforce/workers', icon: <HiOutlineUserGroup />, label: 'Workers' },
     { to: '/projects', icon: <HiOutlineBriefcase />, label: 'Projects' },
     { to: '/inventory', icon: <HiOutlineCube />, label: 'Inventory' },
@@ -54,22 +60,26 @@ export default function Sidebar() {
     { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
     { to: '/my-tasks', icon: <HiOutlineClipboardDocumentList />, label: 'My Tasks' },
     { to: '/projects', icon: <HiOutlineBriefcase />, label: 'Projects' },
+    { to: '/accounts/users', icon: <HiOutlineShieldCheck />, label: 'Business Owner' },
   ];
 
   const clientLinks = [
     { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
     { to: '/projects', icon: <HiOutlineBriefcase />, label: 'Projects' },
+    { to: '/accounts/users', icon: <HiOutlineShieldCheck />, label: 'Business Owner' },
   ];
 
   const links =
+    user?.role === 'ADMIN' ? adminLinks :
     user?.role === 'BUSINESS_OWNER' ? ownerLinks :
     user?.role === 'WORKER' ? workerLinks :
     clientLinks;
 
   const roleIcon =
-    user?.role === 'BUSINESS_OWNER' ? <HiOutlineShieldCheck style={{ verticalAlign: 'middle' }} /> :
+    user?.role === 'ADMIN' ? <HiOutlineShieldCheck style={{ verticalAlign: 'middle' }} /> :
+    user?.role === 'BUSINESS_OWNER' ? <HiOutlineBuildingOffice2 style={{ verticalAlign: 'middle' }} /> :
     user?.role === 'WORKER' ? <HiOutlineWrenchScrewdriver style={{ verticalAlign: 'middle' }} /> :
-    <HiOutlineBuildingOffice2 style={{ verticalAlign: 'middle' }} />;
+    <HiOutlineUserCircle style={{ verticalAlign: 'middle' }} />;
 
   return (
     <aside className="sidebar">

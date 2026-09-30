@@ -1,13 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { workersAPI } from '../services/api';
+import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
-import { HiOutlineMagnifyingGlass, HiOutlineEye, HiOutlineArrowPath, HiOutlineWrenchScrewdriver } from 'react-icons/hi2';
+import {
+  HiOutlineMagnifyingGlass,
+  HiOutlineEye,
+  HiOutlineArrowPath,
+  HiOutlineTrash,
+  HiOutlinePlus,
+  HiOutlineWrenchScrewdriver,
+} from 'react-icons/hi2';
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    phone: '',
+    position: '',
+    skills: '',
+  });
+
   const navigate = useNavigate();
 
   useEffect(() => { loadWorkers(); }, [search]);
@@ -23,6 +41,19 @@ export default function WorkersPage() {
     }
   };
 
+  const handleAddWorker = async (e) => {
+    e.preventDefault();
+    try {
+      await workersAPI.create(form);
+      toast.success('Worker added successfully!');
+      setShowAddModal(false);
+      setForm({ fullName: '', email: '', password: '', phone: '', position: '', skills: '' });
+      loadWorkers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to create worker.');
+    }
+  };
+
   const toggleStatus = async (w) => {
     const newStatus = w.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
@@ -30,7 +61,20 @@ export default function WorkersPage() {
       toast.success(`Worker ${newStatus === 'ACTIVE' ? 'activated' : 'deactivated'}.`);
       loadWorkers();
     } catch (err) {
-      toast.error('Failed to update status.');
+      toast.error(err.response?.data?.error || 'Failed to update status.');
+    }
+  };
+
+  const handleDelete = async (w) => {
+    if (!window.confirm(`Are you sure you want to delete worker "${w.user.fullName}"? This will unassign their tasks and remove their profile.`)) {
+      return;
+    }
+    try {
+      await workersAPI.delete(w.id);
+      toast.success('Worker deleted successfully.');
+      loadWorkers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete worker.');
     }
   };
 
@@ -38,9 +82,12 @@ export default function WorkersPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>Workers</h1>
-          <p>Manage your workforce and assignments</p>
+          <h1>Workforce & Workers</h1>
+          <p>Deploy field workers, manage skillsets, and track project tasks</p>
         </div>
+        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+          <HiOutlinePlus /> Add Worker
+        </button>
       </div>
 
       <div className="filters-bar">
@@ -49,7 +96,7 @@ export default function WorkersPage() {
           <input
             type="text"
             className="form-input"
-            placeholder="Search workers..."
+            placeholder="Search workers by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ paddingLeft: 40 }}
@@ -63,7 +110,10 @@ export default function WorkersPage() {
         <div className="empty-state">
           <div className="empty-icon"><HiOutlineWrenchScrewdriver /></div>
           <h3>No workers found</h3>
-          <p>Workers are created when you add a user with the Worker role.</p>
+          <p>Add your first worker to start assigning projects and tasks.</p>
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            <HiOutlinePlus /> Add Worker
+          </button>
         </div>
       ) : (
         <div className="table-container">
@@ -104,14 +154,23 @@ export default function WorkersPage() {
                   </td>
                   <td>
                     <div className="flex gap-8">
-                      <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/workforce/workers/${w.id}`)} title="View">
+                      <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/workforce/workers/${w.id}`)} title="View Details">
                         <HiOutlineEye />
                       </button>
                       <button
                         className={`btn btn-sm ${w.status === 'ACTIVE' ? 'btn-danger' : 'btn-success'}`}
                         onClick={() => toggleStatus(w)}
+                        title={w.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                       >
                         <HiOutlineArrowPath />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleDelete(w)}
+                        title="Delete Worker"
+                        style={{ color: '#ef4444' }}
+                      >
+                        <HiOutlineTrash />
                       </button>
                     </div>
                   </td>
@@ -121,6 +180,86 @@ export default function WorkersPage() {
           </table>
         </div>
       )}
+
+      {/* Add Worker Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Worker"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleAddWorker}>Create Worker</button>
+          </>
+        }
+      >
+        <form onSubmit={handleAddWorker}>
+          <div className="form-group">
+            <label className="form-label">Full Name *</label>
+            <input
+              className="form-input"
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              placeholder="e.g. John Miller"
+              required
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Email *</label>
+              <input
+                type="email"
+                className="form-input"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="worker@domain.com"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone</label>
+              <input
+                className="form-input"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="+1 (555) 019-2832"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Initial Password *</label>
+            <input
+              type="password"
+              className="form-input"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Min 6 characters"
+              required
+              minLength={6}
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Position / Trade Title</label>
+              <input
+                className="form-input"
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value })}
+                placeholder="e.g. Master Electrician"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Skills (comma-separated)</label>
+              <input
+                className="form-input"
+                value={form.skills}
+                onChange={(e) => setForm({ ...form, skills: e.target.value })}
+                placeholder="e.g. Wiring, HVAC, Safety"
+              />
+            </div>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -92,9 +92,10 @@ export default function ProfilePage() {
   }
 
   const roleIcon =
-    user?.role === 'BUSINESS_OWNER' ? <HiOutlineShieldCheck /> :
+    user?.role === 'ADMIN' ? <HiOutlineShieldCheck /> :
+    user?.role === 'BUSINESS_OWNER' ? <HiOutlineBuildingOffice2 /> :
     user?.role === 'WORKER' ? <HiOutlineWrenchScrewdriver /> :
-    <HiOutlineBuildingOffice2 />;
+    <HiOutlineUser />;
 
   const workerSkills = profileData?.worker?.skills
     ? (() => {

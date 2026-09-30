@@ -105,23 +105,46 @@ router.get('/inventory', authenticate, authorize('BUSINESS_OWNER'), async (req, 
   }
 });
 
-// GET /api/dashboard/overview - Main dashboard for Business Owner
+// GET /api/dashboard/overview - Main dashboard for Admin, Business Owner, Worker, Client
 router.get('/overview', authenticate, async (req, res) => {
   try {
+    if (req.user.role === 'ADMIN') {
+      const [totalBusinessOwners, activeBusinessOwners, totalClients, totalWorkers, totalProjects, recentBusinessOwners] = await Promise.all([
+        prisma.user.count({ where: { role: 'BUSINESS_OWNER' } }),
+        prisma.user.count({ where: { role: 'BUSINESS_OWNER', status: 'ACTIVE' } }),
+        prisma.user.count({ where: { role: 'CLIENT' } }),
+        prisma.user.count({ where: { role: 'WORKER' } }),
+        prisma.project.count(),
+        prisma.user.findMany({
+          where: { role: 'BUSINESS_OWNER' },
+          select: { id: true, fullName: true, email: true, phone: true, status: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 6,
+        }),
+      ]);
+
+      return res.json({
+        role: 'ADMIN',
+        stats: { totalBusinessOwners, activeBusinessOwners, totalClients, totalWorkers, totalProjects },
+        recentBusinessOwners,
+      });
+    }
+
     if (req.user.role === 'BUSINESS_OWNER') {
-      const [totalUsers, totalProjects, activeProjects, totalTasks, pendingTasks, activeAlerts, totalWorkers] = await Promise.all([
-        prisma.user.count(),
+      const [totalUsers, totalProjects, activeProjects, totalTasks, pendingTasks, activeAlerts, totalWorkers, totalClients] = await Promise.all([
+        prisma.user.count({ where: { role: { in: ['CLIENT', 'WORKER'] } } }),
         prisma.project.count(),
         prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
         prisma.task.count(),
         prisma.task.count({ where: { status: { not: 'COMPLETED' } } }),
         prisma.lowStockAlert.count({ where: { status: 'ACTIVE' } }),
         prisma.worker.count({ where: { status: 'ACTIVE' } }),
+        prisma.user.count({ where: { role: 'CLIENT' } }),
       ]);
 
       return res.json({
         role: 'BUSINESS_OWNER',
-        stats: { totalUsers, totalProjects, activeProjects, totalTasks, pendingTasks, activeAlerts, totalWorkers },
+        stats: { totalUsers, totalProjects, activeProjects, totalTasks, pendingTasks, activeAlerts, totalWorkers, totalClients },
       });
     }
 

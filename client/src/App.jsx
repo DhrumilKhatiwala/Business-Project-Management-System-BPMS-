@@ -41,7 +41,7 @@ function AppRoutes() {
 
         {/* Module 1 — Accounts */}
         <Route path="/accounts/users" element={
-          <ProtectedRoute roles={['BUSINESS_OWNER']}><UsersPage /></ProtectedRoute>
+          <ProtectedRoute roles={['ADMIN', 'BUSINESS_OWNER', 'CLIENT', 'WORKER']}><UsersPage /></ProtectedRoute>
         } />
 
         {/* Module 2 — Workforce */}

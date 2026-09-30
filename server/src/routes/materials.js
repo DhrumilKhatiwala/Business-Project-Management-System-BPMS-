@@ -47,8 +47,8 @@ router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (category) where.category = category;
