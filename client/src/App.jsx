@@ -15,6 +15,8 @@ import InventoryPage from './pages/InventoryPage';
 import MaterialDetailPage from './pages/MaterialDetailPage';
 import AlertsPage from './pages/AlertsPage';
 import ProfilePage from './pages/ProfilePage';
+import InvoicesPage from './pages/InvoicesPage';
+import ClientPortalPage from './pages/ClientPortalPage';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -70,6 +72,16 @@ function AppRoutes() {
         } />
         <Route path="/inventory/alerts" element={
           <ProtectedRoute roles={['BUSINESS_OWNER']}><AlertsPage /></ProtectedRoute>
+        } />
+
+        {/* Module 5 — Invoices & Payments (Business Owner) */}
+        <Route path="/invoices" element={
+          <ProtectedRoute roles={['BUSINESS_OWNER']}><InvoicesPage /></ProtectedRoute>
+        } />
+
+        {/* Module 6 — Client Portal */}
+        <Route path="/client-portal" element={
+          <ProtectedRoute roles={['CLIENT']}><ClientPortalPage /></ProtectedRoute>
         } />
       </Route>
 

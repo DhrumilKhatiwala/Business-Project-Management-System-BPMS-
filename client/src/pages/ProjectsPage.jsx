@@ -88,7 +88,7 @@ export default function ProjectsPage() {
           {isOwner && <button className="btn btn-primary" onClick={() => setShowModal(true)}><HiOutlinePlus /> New Project</button>}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
+        <div className="cards-grid">
           {projects.map((p) => (
             <div key={p.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/projects/${p.id}`)}>
               <div className="flex items-center justify-between mb-16">

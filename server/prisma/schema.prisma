@@ -23,7 +23,12 @@ model User {
   // Relations
   worker          Worker?
   createdProjects Project[]     @relation("ProjectCreator")
+  clientProjects  Project[]     @relation("ClientProjects")
   stockUpdates    StockUpdate[]
+  createdInvoices Invoice[]     @relation("InvoiceCreator")
+  clientInvoices  Invoice[]     @relation("ClientInvoices")
+  recordedPayments Payment[]    @relation("PaymentRecorder")
+  createdExpenses Expense[]     @relation("ExpenseCreator")
 
   @@index([role])
   @@index([status])
@@ -54,17 +59,22 @@ model Project {
   endDate     DateTime?
   progress    Int       @default(0) // 0-100
   createdById String    @db.ObjectId
+  clientId    String?   @db.ObjectId
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   createdBy   User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  client      User?               @relation("ClientProjects", fields: [clientId], references: [id])
   tasks       Task[]
   milestones  Milestone[]
   assignments ProjectAssignment[]
   materials   ProjectMaterial[]
+  invoices    Invoice[]
+  expenses    Expense[]
 
   @@index([status])
   @@index([createdById])
+  @@index([clientId])
 }
 
 model Task {
@@ -188,4 +198,72 @@ model ProjectMaterial {
   @@unique([projectId, materialId])
   @@index([projectId])
   @@index([materialId])
+}
+
+// ─── Module 5: Invoices, Payments & Financials ───────────
+
+model Invoice {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber String       @unique
+  projectId     String       @db.ObjectId
+  clientId      String?      @db.ObjectId
+  amount        Float        @default(0)
+  paidAmount    Float        @default(0)
+  dueDate       DateTime?
+  issuedDate    DateTime     @default(now())
+  status        String       @default("PENDING") // PENDING, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED
+  notes         String?
+  items         String?      @default("[]") // JSON string of [{ description, quantity, unitPrice, total }]
+  createdById   String       @db.ObjectId
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client        User?        @relation("ClientInvoices", fields: [clientId], references: [id])
+  createdBy     User         @relation("InvoiceCreator", fields: [createdById], references: [id])
+  payments      Payment[]
+
+  @@index([projectId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdById])
+}
+
+model Payment {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId     String       @db.ObjectId
+  amount        Float
+  paymentDate   DateTime     @default(now())
+  paymentMethod String       @default("BANK_TRANSFER") // CASH, BANK_TRANSFER, CHEQUE, ONLINE
+  reference     String?
+  notes         String?
+  recordedById  String       @db.ObjectId
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy    User         @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([invoiceId])
+  @@index([recordedById])
+}
+
+model Expense {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  category    String    // MATERIALS, LABOUR, EQUIPMENT, SUBCONTRACTOR, MISC
+  amount      Float
+  date        DateTime  @default(now())
+  projectId   String?   @db.ObjectId
+  notes       String?
+  createdById String    @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy   User      @relation("ExpenseCreator", fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([category])
+  @@index([createdById])
 }

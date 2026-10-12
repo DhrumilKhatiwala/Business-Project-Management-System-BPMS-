@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, '')}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -72,6 +73,7 @@ export const projectsAPI = {
   getMaterials: (projectId) => api.get(`/projects/${projectId}/materials`),
   allocateMaterial: (projectId, data) => api.post(`/projects/${projectId}/materials`, data),
   removeMaterial: (projectId, allocationId) => api.delete(`/projects/${projectId}/materials/${allocationId}`),
+  delete: (id) => api.delete(`/projects/${id}`),
 };
 
 // ─── Tasks ───
@@ -108,6 +110,23 @@ export const alertsAPI = {
   getLowStock: (params) => api.get('/alerts/low-stock', { params }),
   getLowStockAlerts: (status) => api.get('/alerts/low-stock', { params: typeof status === 'string' ? { status } : status }),
   resolve: (id) => api.patch(`/alerts/${id}/resolve`),
+};
+
+// ─── Invoices & Payments (Module 5) ───
+export const invoicesAPI = {
+  list: (params) => api.get('/invoices', { params }),
+  get: (id) => api.get(`/invoices/${id}`),
+  create: (data) => api.post('/invoices', data),
+  update: (id, data) => api.put(`/invoices/${id}`, data),
+  delete: (id) => api.delete(`/invoices/${id}`),
+  recordPayment: (invoiceId, data) => api.post(`/invoices/${invoiceId}/payments`, data),
+  getOverviewStats: () => api.get('/invoices/stats/overview'),
+};
+
+// ─── Client Portal (Module 6) ───
+export const clientPortalAPI = {
+  getOverview: () => api.get('/client-portal/overview'),
+  getProject: (id) => api.get(`/client-portal/projects/${id}`),
 };
 
 // ─── Dashboard ───

@@ -35,6 +35,7 @@ export default function AlertsPage() {
     try {
       await alertsAPI.resolve(id);
       toast.success('Alert resolved.');
+      window.dispatchEvent(new Event('alerts-updated'));
       loadAlerts();
     } catch (err) {
       toast.error('Failed to resolve alert.');
@@ -60,6 +61,7 @@ export default function AlertsPage() {
       });
       toast.success(`Successfully added ${restockQty} ${restockAlert.material.unit} to inventory!`);
       setRestockAlert(null);
+      window.dispatchEvent(new Event('alerts-updated'));
       loadAlerts();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update stock.');
@@ -145,18 +147,19 @@ export default function AlertsPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', gap: '6px 20px', fontSize: '0.88rem' }}>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Current On-Hand:</span>
-                      <span style={{ color: isActive ? 'var(--danger)' : 'var(--text-primary)', fontWeight: 700 }}>
-                        {a.currentQuantity} {a.material.unit}
-                      </span>
-                      <span></span>
-
-                      <span style={{ color: 'var(--text-tertiary)' }}>Safety Reorder Level:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>
-                        {a.minStockLevel} {a.material.unit}
-                      </span>
-                      <span></span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 24px', fontSize: '0.88rem' }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-tertiary)' }}>Current On-Hand:</span>
+                        <span style={{ color: isActive ? 'var(--danger)' : 'var(--text-primary)', fontWeight: 700 }}>
+                          {a.currentQuantity} {a.material.unit}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-tertiary)' }}>Safety Reorder Level:</span>
+                        <span style={{ color: 'var(--text-primary)' }}>
+                          {a.minStockLevel} {a.material.unit}
+                        </span>
+                      </div>
                     </div>
 
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 10 }}>

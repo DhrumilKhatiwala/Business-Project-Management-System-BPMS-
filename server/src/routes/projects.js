@@ -10,8 +10,6 @@ router.get('/', authenticate, async (req, res) => {
     const { search, status } = req.query;
     const where = {};
 
-    // CLIENT can only see projects they're associated with (via assignments through worker)
-    // For now, clients can see all projects (business decision)
     if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
       if (worker) {
@@ -19,6 +17,11 @@ router.get('/', authenticate, async (req, res) => {
       } else {
         return res.json([]);
       }
+    } else if (req.user.role === 'CLIENT') {
+      where.OR = [
+        { clientId: req.user.id },
+        { clientId: null }
+      ];
     }
 
     if (search) {
@@ -30,7 +33,8 @@ router.get('/', authenticate, async (req, res) => {
       where,
       include: {
         createdBy: { select: { fullName: true } },
-        _count: { select: { tasks: true, milestones: true, assignments: true } },
+        client: { select: { id: true, fullName: true, email: true } },
+        _count: { select: { tasks: true, milestones: true, assignments: true, invoices: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -95,7 +99,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/projects
 router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
-    const { name, description, startDate, endDate } = req.body;
+    const { name, description, startDate, endDate, clientId } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Project name is required.' });
@@ -111,10 +115,12 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
         description: description || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        clientId: clientId || null,
         createdById: req.user.id,
       },
       include: {
         createdBy: { select: { fullName: true } },
+        client: { select: { id: true, fullName: true, email: true } },
         _count: { select: { tasks: true, milestones: true, assignments: true } },
       },
     });
@@ -129,7 +135,7 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
 // PUT /api/projects/:id
 router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
-    const { name, description, status, startDate, endDate, progress } = req.body;
+    const { name, description, status, startDate, endDate, progress, clientId } = req.body;
 
     const existing = await prisma.project.findUnique({ where: { id: req.params.id } });
     if (!existing) {
@@ -153,9 +159,11 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
         ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
         ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
         ...(progress !== undefined && { progress }),
+        ...(clientId !== undefined && { clientId: clientId || null }),
       },
       include: {
         createdBy: { select: { fullName: true } },
+        client: { select: { id: true, fullName: true, email: true } },
         _count: { select: { tasks: true, milestones: true, assignments: true } },
       },
     });
@@ -419,6 +427,33 @@ router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_
   } catch (error) {
     console.error('Deallocate material error:', error);
     res.status(500).json({ error: 'Failed to deallocate material.' });
+  }
+});
+
+// DELETE /api/projects/:id - Delete project (Business Owner only)
+router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found.' });
+    }
+
+    // Cascade cleanups
+    await prisma.$transaction([
+      prisma.projectMaterial.deleteMany({ where: { projectId: id } }),
+      prisma.projectAssignment.deleteMany({ where: { projectId: id } }),
+      prisma.task.deleteMany({ where: { projectId: id } }),
+      prisma.milestone.deleteMany({ where: { projectId: id } }),
+      prisma.invoice.deleteMany({ where: { projectId: id } }),
+      prisma.expense.deleteMany({ where: { projectId: id } }),
+      prisma.project.delete({ where: { id } }),
+    ]);
+
+    res.json({ message: 'Project deleted successfully.' });
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ error: 'Failed to delete project.' });
   }
 });
 

@@ -7,6 +7,9 @@ async function main() {
   console.log('🌱 Seeding MongoDB database...');
 
   // Clean existing data (order matters — delete children first)
+  await prisma.payment.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.expense.deleteMany();
   await prisma.projectMaterial.deleteMany();
   await prisma.lowStockAlert.deleteMany();
   await prisma.stockUpdate.deleteMany();
@@ -144,6 +147,7 @@ async function main() {
       endDate: new Date('2026-12-15'),
       progress: 60,
       createdById: owner.id,
+      clientId: client1.id,
     },
   });
 
@@ -156,6 +160,7 @@ async function main() {
       endDate: new Date('2027-02-28'),
       progress: 25,
       createdById: owner.id,
+      clientId: client1.id,
     },
   });
 
@@ -168,6 +173,7 @@ async function main() {
       endDate: new Date('2027-04-30'),
       progress: 0,
       createdById: owner.id,
+      clientId: client2.id,
     },
   });
 
@@ -442,6 +448,114 @@ async function main() {
   }
 
   console.log('✅ Inventory, Stock Updates & Low Stock Alerts seeded');
+
+  // 4. MODULE 5: Invoices, Payments & Expenses
+  const inv1 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2026-001',
+      projectId: project1.id,
+      clientId: client1.id,
+      amount: 150000,
+      paidAmount: 150000,
+      dueDate: new Date('2026-09-15'),
+      issuedDate: new Date('2026-08-15'),
+      status: 'PAID',
+      notes: 'Initial milestone payment fully settled.',
+      items: JSON.stringify([
+        { description: 'Architectural Planning & Engineering Sign-off', quantity: 1, unitPrice: 75000, total: 75000 },
+        { description: 'Foundation & Steel Allocation Deposit', quantity: 1, unitPrice: 75000, total: 75000 },
+      ]),
+      createdById: owner.id,
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      invoiceId: inv1.id,
+      amount: 150000,
+      paymentDate: new Date('2026-09-10'),
+      paymentMethod: 'BANK_TRANSFER',
+      reference: 'TXN-HDFC-991283',
+      notes: 'Wire transfer received in full',
+      recordedById: owner.id,
+    },
+  });
+
+  const inv2 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2026-002',
+      projectId: project2.id,
+      clientId: client1.id,
+      amount: 320000,
+      paidAmount: 160000,
+      dueDate: new Date('2026-11-01'),
+      issuedDate: new Date('2026-09-20'),
+      status: 'PARTIALLY_PAID',
+      notes: '50% advance received, balance due on completion of civil structure.',
+      items: JSON.stringify([
+        { description: 'Civil Structure & Brickwork', quantity: 1, unitPrice: 200000, total: 200000 },
+        { description: 'Electrical Pre-cabling & Conduit Work', quantity: 1, unitPrice: 120000, total: 120000 },
+      ]),
+      createdById: owner.id,
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      invoiceId: inv2.id,
+      amount: 160000,
+      paymentDate: new Date('2026-09-25'),
+      paymentMethod: 'ONLINE',
+      reference: 'TXN-RAZORPAY-882194',
+      notes: 'First installment paid online',
+      recordedById: owner.id,
+    },
+  });
+
+  const inv3 = await prisma.invoice.create({
+    data: {
+      invoiceNumber: 'INV-2026-003',
+      projectId: project3.id,
+      clientId: client2.id,
+      amount: 110000,
+      paidAmount: 0,
+      dueDate: new Date('2026-11-15'),
+      issuedDate: new Date('2026-10-01'),
+      status: 'PENDING',
+      notes: 'Mobilization advance for warehouse bay excavation.',
+      items: JSON.stringify([
+        { description: 'Site Leveling & Heavy Excavation Advance', quantity: 1, unitPrice: 110000, total: 110000 },
+      ]),
+      createdById: owner.id,
+    },
+  });
+
+  // Seed Expenses
+  await prisma.expense.create({
+    data: {
+      title: 'Structural Steel Delivery Batch 1',
+      category: 'MATERIALS',
+      amount: 45000,
+      projectId: project1.id,
+      date: new Date('2026-08-22'),
+      notes: 'Delivered by Tata Steel',
+      createdById: owner.id,
+    },
+  });
+
+  await prisma.expense.create({
+    data: {
+      title: 'Excavator & Crane Rental (2 Weeks)',
+      category: 'EQUIPMENT',
+      amount: 32000,
+      projectId: project1.id,
+      date: new Date('2026-08-25'),
+      notes: 'Heavy machinery rentals',
+      createdById: owner.id,
+    },
+  });
+
+  console.log('✅ Invoices, Payments & Expenses seeded');
 
   console.log('\n🎉 MongoDB database successfully seeded with real production test data!');
   console.log('Credentials:');

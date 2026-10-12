@@ -11,6 +11,8 @@ const milestoneRoutes = require('./routes/milestones');
 const materialRoutes = require('./routes/materials');
 const alertRoutes = require('./routes/alerts');
 const dashboardRoutes = require('./routes/dashboard');
+const invoiceRoutes = require('./routes/invoices');
+const clientPortalRoutes = require('./routes/clientPortal');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,11 +31,25 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/client-portal', clientPortalRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Serve frontend build if present (for single-service full-stack deployment)
+const path = require('path');
+const fs = require('fs');
+const clientDistPath = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 // Global error handler
 app.use((err, req, res, next) => {

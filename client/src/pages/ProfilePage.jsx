@@ -120,7 +120,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24, alignItems: 'start' }}>
+      <div className="profile-layout-grid">
         {/* ── Left Column: User Summary Card ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card text-center" style={{ padding: '32px 24px' }}>
@@ -330,7 +330,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }} className="mb-24">
+              <div className="form-row mb-24">
                 <div className="form-group">
                   <label className="form-label">New Password</label>
                   <div style={{ position: 'relative' }}>

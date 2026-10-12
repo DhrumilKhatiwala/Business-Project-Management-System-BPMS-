@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { alertsAPI } from '../services/api';
 import BrandLogo from './BrandLogo';
@@ -16,23 +16,40 @@ import {
   HiOutlineWrenchScrewdriver,
   HiOutlineBuildingOffice2,
   HiOutlineUserCircle,
+  HiOutlineDocumentText,
+  HiOutlineXMark,
 } from 'react-icons/hi2';
 import './Sidebar.css';
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
 
-  useEffect(() => {
+  const fetchAlertsCount = () => {
     if (user?.role === 'BUSINESS_OWNER') {
       alertsAPI.getLowStock({ status: 'ACTIVE' })
         .then(res => setActiveAlertsCount(res.data?.length || 0))
         .catch(() => {});
     }
+  };
+
+  useEffect(() => {
+    fetchAlertsCount();
+  }, [user?.role, location.pathname]);
+
+  useEffect(() => {
+    window.addEventListener('alerts-updated', fetchAlertsCount);
+    const timer = setInterval(fetchAlertsCount, 15000);
+    return () => {
+      window.removeEventListener('alerts-updated', fetchAlertsCount);
+      clearInterval(timer);
+    };
   }, [user?.role]);
 
   const handleLogout = () => {
+    if (onClose) onClose();
     logout();
     navigate('/login');
   };
@@ -54,6 +71,7 @@ export default function Sidebar() {
       label: 'Alerts',
       badge: activeAlertsCount > 0 ? activeAlertsCount : null,
     },
+    { to: '/invoices', icon: <HiOutlineDocumentText />, label: 'Invoices' },
   ];
 
   const workerLinks = [
@@ -65,6 +83,7 @@ export default function Sidebar() {
 
   const clientLinks = [
     { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
+    { to: '/client-portal', icon: <HiOutlineDocumentText />, label: 'Project Progress' },
     { to: '/projects', icon: <HiOutlineBriefcase />, label: 'Projects' },
     { to: '/accounts/users', icon: <HiOutlineShieldCheck />, label: 'Business Owner' },
   ];
@@ -82,9 +101,14 @@ export default function Sidebar() {
     <HiOutlineUserCircle style={{ verticalAlign: 'middle' }} />;
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <div className="sidebar-header flex items-center justify-between">
         <BrandLogo size={36} showText={true} />
+        {onClose && (
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close navigation">
+            <HiOutlineXMark />
+          </button>
+        )}
       </div>
 
       <nav className="sidebar-nav">
@@ -96,6 +120,7 @@ export default function Sidebar() {
               to={link.to}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
               end={link.to === '/dashboard'}
+              onClick={() => { if (onClose) onClose(); }}
             >
               <span className="nav-icon">{link.icon}</span>
               <span className="nav-label">{link.label}</span>
@@ -110,7 +135,7 @@ export default function Sidebar() {
       <div className="sidebar-footer">
         <div
           className="user-info"
-          onClick={() => navigate('/profile')}
+          onClick={() => { if (onClose) onClose(); navigate('/profile'); }}
           title="Account & Profile Settings"
           style={{ cursor: 'pointer', borderRadius: 'var(--radius-md)', padding: '4px', transition: 'background 0.2s' }}
         >

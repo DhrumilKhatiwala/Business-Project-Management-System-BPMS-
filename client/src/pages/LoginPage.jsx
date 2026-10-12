@@ -93,7 +93,7 @@ export default function LoginPage() {
             <HiOutlineSparkles style={{ verticalAlign: 'middle', marginRight: 4 }} />
             Instant Persona Demos
           </div>
-          <div className="demo-chips-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          <div className="demo-chips-grid">
             <button
               type="button"
               className="demo-chip-btn"

@@ -305,7 +305,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* ── KPI Stats & Progress ── */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+      <div className="stats-grid compact">
         <div className="stat-card">
           <div className="flex justify-between items-center">
             <div className="stat-value">{project.progress}%</div>
@@ -672,7 +672,7 @@ export default function ProjectDetailPage() {
               <p>Assign qualified field workers to begin delegating tasks.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            <div className="cards-grid" style={{ gap: 16 }}>
               {project.assignments.map((a) => (
                 <div key={a.id} className="card" style={{ padding: 18 }}>
                   <div className="flex items-center justify-between">
@@ -718,7 +718,7 @@ export default function ProjectDetailPage() {
 
           {/* Aggregate Material Cost Stats */}
           {projectMaterials.length > 0 && (
-            <div className="stats-grid mb-24" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="stats-grid compact mb-24">
               <div className="stat-card" style={{ padding: '16px 20px' }}>
                 <div className="stat-icon blue" style={{ width: 40, height: 40, fontSize: '1.1rem' }}>
                   <HiOutlineCube />

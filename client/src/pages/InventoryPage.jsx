@@ -117,7 +117,7 @@ export default function InventoryPage() {
       </div>
 
       {/* ── Quick KPI Counters ── */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+      <div className="stats-grid compact">
         <div className="stat-card">
           <div className="stat-value">{materials.length}</div>
           <div className="stat-label">Catalog Items</div>

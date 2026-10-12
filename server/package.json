@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "build": "npx prisma generate",
+    "postinstall": "npx prisma generate",
     "db:push": "node ./node_modules/prisma/build/index.js db push",
     "db:seed": "node prisma/seed.js",
     "db:studio": "node ./node_modules/prisma/build/index.js studio",

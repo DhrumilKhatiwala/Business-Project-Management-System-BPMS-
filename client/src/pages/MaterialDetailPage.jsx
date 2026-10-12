@@ -43,6 +43,7 @@ export default function MaterialDetailPage() {
     try {
       await materialsAPI.updateStock(id, { type: stockForm.type, quantity: qty, note: stockForm.note });
       toast.success(`Stock ${stockForm.type === 'ADD' ? 'added' : 'deducted'} successfully!`);
+      window.dispatchEvent(new Event('alerts-updated'));
       setShowStockModal(false);
       setStockForm({ type: 'ADD', quantity: '', note: '' });
       loadMaterial();
@@ -88,7 +89,7 @@ export default function MaterialDetailPage() {
       </div>
 
       {/* Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+      <div className="stats-grid compact">
         <div className="stat-card">
           <div className="stat-value">{material.quantity}</div>
           <div className="stat-label">Current Stock ({material.unit})</div>

@@ -6,7 +6,8 @@ import {
   HiOutlineUsers, HiOutlineBriefcase, HiOutlineClipboardDocumentList,
   HiOutlineCube, HiOutlineExclamationTriangle, HiOutlineUserGroup,
   HiOutlineCheckCircle, HiOutlineClock, HiOutlinePlus, HiOutlineArrowRight,
-  HiOutlineShieldCheck, HiOutlineCalendar, HiOutlineBuildingOffice2
+  HiOutlineShieldCheck, HiOutlineCalendar, HiOutlineBuildingOffice2,
+  HiOutlineDocumentText, HiOutlineCurrencyDollar
 } from 'react-icons/hi2';
 
 export default function DashboardPage() {
@@ -93,6 +94,10 @@ export default function DashboardPage() {
           )}
           {user.role === 'BUSINESS_OWNER' && (
             <>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/invoices')}>
+                <HiOutlineDocumentText />
+                <span>Invoices</span>
+              </button>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate('/inventory')}>
                 <HiOutlineCube />
                 <span>Inventory</span>
@@ -107,6 +112,12 @@ export default function DashboardPage() {
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/my-tasks')}>
               <HiOutlineClipboardDocumentList />
               <span>View My Tasks</span>
+            </button>
+          )}
+          {user.role === 'CLIENT' && (
+            <button className="btn btn-primary btn-sm" onClick={() => navigate('/client-portal')}>
+              <HiOutlineDocumentText />
+              <span>Project Progress & Portal</span>
             </button>
           )}
         </div>
@@ -242,7 +253,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Visual Distribution Cards (Projects & Inventory) ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div className="dashboard-distribution-grid">
             {/* Project Portfolio Distribution */}
             <div className="distribution-card">
               <div className="distribution-header">
@@ -466,7 +477,7 @@ export default function DashboardPage() {
                   Projects you are currently deployed on
                 </p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              <div className="cards-grid" style={{ gap: 16 }}>
                 {data.myProjects.map((p) => (
                   <div
                     key={p.id}
@@ -523,10 +534,16 @@ export default function DashboardPage() {
                   Real-time status, milestone achievement, and delivery progress
                 </p>
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/projects')}>
-                <span>All Projects</span>
-                <HiOutlineArrowRight />
-              </button>
+              <div className="flex gap-8">
+                <button className="btn btn-primary btn-sm" onClick={() => navigate('/client-portal')}>
+                  <HiOutlineDocumentText />
+                  <span>My Portal & Live Progress</span>
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => navigate('/projects')}>
+                  <span>All Projects</span>
+                  <HiOutlineArrowRight />
+                </button>
+              </div>
             </div>
 
             {(!data?.projects || data.projects.length === 0) ? (
