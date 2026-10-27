@@ -9,13 +9,26 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { projectId, status } = req.query;
     const where = {};
+
+    if (req.user.role === 'BUSINESS_OWNER') {
+      where.project = { companyId: req.user.companyId };
+    } else if (req.user.role === 'CLIENT') {
+      where.project = { clientId: req.user.id };
+    } else if (req.user.role === 'WORKER') {
+      const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
+      if (!worker) return res.json([]);
+      where.project = {
+        assignments: { some: { workerId: worker.id } },
+      };
+    }
+
     if (projectId) where.projectId = projectId;
     if (status) where.status = status;
 
     const milestones = await prisma.milestone.findMany({
       where,
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, companyId: true } },
       },
       orderBy: { dueDate: 'asc' },
     });
@@ -44,6 +57,10 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       return res.status(404).json({ error: 'Project not found.' });
     }
 
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+    }
+
     const milestone = await prisma.milestone.create({
       data: {
         title: title.trim(),
@@ -68,9 +85,17 @@ router.patch('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res)
   try {
     const { title, description, dueDate, status } = req.body;
 
-    const existing = await prisma.milestone.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.milestone.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    });
+
     if (!existing) {
       return res.status(404).json({ error: 'Milestone not found.' });
+    }
+
+    if (existing.project?.companyId !== req.user.companyId && existing.project?.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Milestone belongs to another company.' });
     }
 
     const milestone = await prisma.milestone.update({
@@ -96,6 +121,19 @@ router.patch('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res)
 // DELETE /api/milestones/:id
 router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const existing = await prisma.milestone.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Milestone not found.' });
+    }
+
+    if (existing.project?.companyId !== req.user.companyId && existing.project?.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Milestone belongs to another company.' });
+    }
+
     await prisma.milestone.delete({ where: { id: req.params.id } });
     res.json({ message: 'Milestone deleted.' });
   } catch (error) {

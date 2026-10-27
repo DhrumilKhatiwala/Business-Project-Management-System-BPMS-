@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { workersAPI } from '../services/api';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -10,9 +11,11 @@ import {
   HiOutlineTrash,
   HiOutlinePlus,
   HiOutlineWrenchScrewdriver,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi2';
 
 export default function WorkersPage() {
+  const { user } = useAuth();
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -83,7 +86,7 @@ export default function WorkersPage() {
       <div className="page-header">
         <div>
           <h1>Workforce & Workers</h1>
-          <p>Deploy field workers, manage skillsets, and track project tasks</p>
+          <p>Deploy field workers for {user?.companyName || user?.company?.name || 'your company'}, manage skillsets, and track project tasks</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
           <HiOutlinePlus /> Add Worker
@@ -193,6 +196,24 @@ export default function WorkersPage() {
           </>
         }
       >
+        <div style={{
+          padding: '10px 14px',
+          background: 'rgba(99, 102, 241, 0.08)',
+          border: '1px solid rgba(99, 102, 241, 0.2)',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '0.82rem',
+          color: '#cbd5e1',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <HiOutlineShieldCheck style={{ color: '#818cf8', fontSize: '1.2rem', flexShrink: 0 }} />
+          <span>
+            This worker will be permanently bound to <strong>{user?.companyName || user?.company?.name || 'your company'}</strong>. They will only see tasks and projects within your organization.
+          </span>
+        </div>
+
         <form onSubmit={handleAddWorker}>
           <div className="form-group">
             <label className="form-label">Full Name *</label>

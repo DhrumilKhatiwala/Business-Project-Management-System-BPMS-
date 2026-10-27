@@ -21,12 +21,24 @@ function formatInvoice(invoice) {
   return { ...invoice, items };
 }
 
-// GET /api/invoices/stats/overview - Financial KPIs & Profit/Debt
+// GET /api/invoices/stats/overview - Financial KPIs & Profit/Debt scoped to company
 router.get('/stats/overview', authenticate, async (req, res) => {
   try {
-    const isClient = req.user.role === 'CLIENT';
-    const invoiceWhere = isClient ? { clientId: req.user.id } : {};
-    const expenseWhere = isClient ? { project: { clientId: req.user.id } } : {};
+    let invoiceWhere = {};
+    let expenseWhere = {};
+
+    if (req.user.role === 'CLIENT') {
+      invoiceWhere = { clientId: req.user.id };
+      expenseWhere = { project: { clientId: req.user.id } };
+      if (req.user.companyId) {
+        invoiceWhere.companyId = req.user.companyId;
+        expenseWhere.companyId = req.user.companyId;
+      }
+    } else if (req.user.role === 'BUSINESS_OWNER') {
+      const companyId = req.user.companyId || '__NO_COMPANY__';
+      invoiceWhere = { companyId };
+      expenseWhere = { companyId };
+    }
 
     const [invoices, expenses] = await Promise.all([
       prisma.invoice.findMany({ where: invoiceWhere }),
@@ -38,11 +50,10 @@ router.get('/stats/overview', authenticate, async (req, res) => {
     const totalPending = totalInvoiced - totalCollected;
     const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
-    const overdueCount = invoices.filter(inv => {
+    const overdueCount = invoices.filter((inv) => {
       return inv.status === 'OVERDUE' || (inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'PAID');
     }).length;
 
-    // Profit = Total Collected - Expenses; Debt/Pending Receivable = Total Pending
     const netProfit = totalCollected - totalExpenses;
 
     res.json({
@@ -60,15 +71,18 @@ router.get('/stats/overview', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/invoices - List invoices
+// GET /api/invoices - List invoices scoped to company
 router.get('/', authenticate, async (req, res) => {
   try {
     const { search, status, projectId, clientId } = req.query;
     const where = {};
 
-    // Role Scoping
     if (req.user.role === 'CLIENT') {
       where.clientId = req.user.id;
+      if (req.user.companyId) where.companyId = req.user.companyId;
+    } else if (req.user.role === 'BUSINESS_OWNER') {
+      where.companyId = req.user.companyId || '__NO_COMPANY__';
+      if (clientId) where.clientId = clientId;
     } else if (clientId) {
       where.clientId = clientId;
     }
@@ -108,7 +122,7 @@ router.get('/:id', authenticate, async (req, res) => {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       include: {
-        project: { select: { id: true, name: true, status: true, progress: true } },
+        project: { select: { id: true, name: true, status: true, progress: true, companyId: true } },
         client: { select: { id: true, fullName: true, email: true, phone: true } },
         createdBy: { select: { id: true, fullName: true, email: true } },
         payments: {
@@ -124,6 +138,10 @@ router.get('/:id', authenticate, async (req, res) => {
 
     if (req.user.role === 'CLIENT' && invoice.clientId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (req.user.role === 'BUSINESS_OWNER' && invoice.companyId !== req.user.companyId && invoice.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Invoice belongs to another company.' });
     }
 
     res.json(formatInvoice(invoice));
@@ -147,21 +165,28 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       return res.status(400).json({ error: 'A positive invoice amount is required.' });
     }
 
-    // Auto-generate invoice number if not provided
-    let num = invoiceNumber?.trim();
-    if (!num) {
-      const count = await prisma.invoice.count();
-      num = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`;
-    }
-
-    // Verify project exists
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (!project) {
       return res.status(404).json({ error: 'Project not found.' });
     }
 
-    // Determine client: either from payload or from the project's linked client
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+    }
+
     const targetClientId = clientId || project.clientId || null;
+    if (targetClientId) {
+      const client = await prisma.user.findUnique({ where: { id: targetClientId } });
+      if (client && client.companyId !== req.user.companyId && client.ownerId !== req.user.id) {
+        return res.status(400).json({ error: 'Specified client does not belong to your company.' });
+      }
+    }
+
+    let num = invoiceNumber?.trim();
+    if (!num) {
+      const count = await prisma.invoice.count({ where: { companyId: req.user.companyId } });
+      num = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`;
+    }
 
     let serializedItems = '[]';
     if (items) {
@@ -179,6 +204,7 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
         notes: notes || null,
         items: serializedItems,
         status: 'PENDING',
+        companyId: req.user.companyId,
         createdById: req.user.id,
       },
       include: {
@@ -207,6 +233,10 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
       return res.status(404).json({ error: 'Invoice not found.' });
     }
 
+    if (existing.companyId !== req.user.companyId && existing.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot edit invoices from another company.' });
+    }
+
     const updateData = {};
     if (amount !== undefined) {
       const pAmt = parseFloat(amount);
@@ -214,7 +244,6 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
         return res.status(400).json({ error: `Amount cannot be less than already collected (${existing.paidAmount}).` });
       }
       updateData.amount = pAmt;
-      // Auto-update status based on new amount
       if (existing.paidAmount >= pAmt && pAmt > 0) {
         updateData.status = 'PAID';
       } else if (existing.paidAmount > 0) {
@@ -259,6 +288,10 @@ router.post('/:id/payments', authenticate, authorize('BUSINESS_OWNER'), async (r
     const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice not found.' });
+    }
+
+    if (invoice.companyId !== req.user.companyId && invoice.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     const remaining = invoice.amount - invoice.paidAmount;
@@ -309,6 +342,15 @@ router.post('/:id/payments', authenticate, authorize('BUSINESS_OWNER'), async (r
 // DELETE /api/invoices/:id - Delete Invoice (Business Owner only)
 router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const existing = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Invoice not found.' });
+    }
+
+    if (existing.companyId !== req.user.companyId && existing.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     await prisma.invoice.delete({ where: { id: req.params.id } });
     res.json({ message: 'Invoice deleted successfully.' });
   } catch (error) {

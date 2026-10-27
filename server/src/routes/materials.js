@@ -4,13 +4,14 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Helper: Check and create low-stock alert
-async function checkLowStock(materialId, userId) {
+// Helper: Check and create low-stock alert scoped to company
+async function checkLowStock(materialId, companyId) {
   const material = await prisma.material.findUnique({ where: { id: materialId } });
   if (!material) return;
 
+  const compId = companyId || material.companyId;
+
   if (material.quantity <= material.minStockLevel) {
-    // Check if there's already an active alert for this material
     const existingAlert = await prisma.lowStockAlert.findFirst({
       where: { materialId, status: 'ACTIVE' },
     });
@@ -21,17 +22,16 @@ async function checkLowStock(materialId, userId) {
           materialId,
           currentQuantity: material.quantity,
           minStockLevel: material.minStockLevel,
+          companyId: compId,
         },
       });
     } else {
-      // Update existing alert with current quantity
       await prisma.lowStockAlert.update({
         where: { id: existingAlert.id },
         data: { currentQuantity: material.quantity },
       });
     }
   } else {
-    // Resolve any active alerts if stock is above threshold
     await prisma.lowStockAlert.updateMany({
       where: { materialId, status: 'ACTIVE' },
       data: { status: 'RESOLVED', resolvedAt: new Date() },
@@ -39,11 +39,13 @@ async function checkLowStock(materialId, userId) {
   }
 }
 
-// GET /api/materials
+// GET /api/materials - List materials scoped to current Business Owner's company
 router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { search, category, status } = req.query;
-    const where = {};
+    const companyId = req.user.companyId || '__NO_COMPANY__';
+
+    const where = { companyId };
 
     if (search) {
       where.OR = [
@@ -62,12 +64,14 @@ router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
       orderBy: { name: 'asc' },
     });
 
-    // Add availability status
-    const materialsWithAvailability = materials.map(m => ({
+    const materialsWithAvailability = materials.map((m) => ({
       ...m,
-      availability: m.quantity === 0 ? 'OUT_OF_STOCK'
-        : m.quantity <= m.minStockLevel ? 'LOW_STOCK'
-        : 'IN_STOCK',
+      availability:
+        m.quantity === 0
+          ? 'OUT_OF_STOCK'
+          : m.quantity <= m.minStockLevel
+          ? 'LOW_STOCK'
+          : 'IN_STOCK',
     }));
 
     res.json(materialsWithAvailability);
@@ -77,16 +81,20 @@ router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   }
 });
 
-// GET /api/materials/categories
+// GET /api/materials/categories - Distinct categories for current company
 router.get('/categories', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const companyId = req.user.companyId || '__NO_COMPANY__';
     const categories = await prisma.material.findMany({
-      where: { category: { not: null } },
+      where: {
+        companyId,
+        category: { not: null },
+      },
       select: { category: true },
       distinct: ['category'],
       orderBy: { category: 'asc' },
     });
-    res.json(categories.map(c => c.category));
+    res.json(categories.map((c) => c.category));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch categories.' });
   }
@@ -114,9 +122,16 @@ router.get('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
       return res.status(404).json({ error: 'Material not found.' });
     }
 
-    const availability = material.quantity === 0 ? 'OUT_OF_STOCK'
-      : material.quantity <= material.minStockLevel ? 'LOW_STOCK'
-      : 'IN_STOCK';
+    if (material.companyId !== req.user.companyId && material.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Material belongs to another company.' });
+    }
+
+    const availability =
+      material.quantity === 0
+        ? 'OUT_OF_STOCK'
+        : material.quantity <= material.minStockLevel
+        ? 'LOW_STOCK'
+        : 'IN_STOCK';
 
     res.json({ ...material, availability });
   } catch (error) {
@@ -125,7 +140,7 @@ router.get('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
   }
 });
 
-// POST /api/materials
+// POST /api/materials - Create material for current Business Owner's company
 router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { name, description, category, unit, quantity, minStockLevel, costPerUnit, supplier } = req.body;
@@ -153,11 +168,28 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
         minStockLevel: minStockLevel || 10,
         costPerUnit: costPerUnit || 0,
         supplier: supplier || null,
+        companyId: req.user.companyId,
+        createdById: req.user.id,
       },
     });
 
+    // Initial stock update record if quantity > 0
+    if (quantity && quantity > 0) {
+      await prisma.stockUpdate.create({
+        data: {
+          materialId: material.id,
+          type: 'ADD',
+          quantity,
+          previousQty: 0,
+          newQty: quantity,
+          note: 'Initial inventory stocking',
+          createdById: req.user.id,
+        },
+      });
+    }
+
     // Check low stock on creation
-    await checkLowStock(material.id, req.user.id);
+    await checkLowStock(material.id, req.user.companyId);
 
     res.status(201).json(material);
   } catch (error) {
@@ -174,6 +206,10 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
     const existing = await prisma.material.findUnique({ where: { id: req.params.id } });
     if (!existing) {
       return res.status(404).json({ error: 'Material not found.' });
+    }
+
+    if (existing.companyId !== req.user.companyId && existing.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot modify materials from another company.' });
     }
 
     if (costPerUnit !== undefined && costPerUnit < 0) {
@@ -197,8 +233,7 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
       },
     });
 
-    // Re-check low stock if min level changed
-    await checkLowStock(material.id, req.user.id);
+    await checkLowStock(material.id, req.user.companyId);
 
     res.json(material);
   } catch (error) {
@@ -210,6 +245,15 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
 // DELETE /api/materials/:id
 router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const existing = await prisma.material.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Material not found.' });
+    }
+
+    if (existing.companyId !== req.user.companyId && existing.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot delete materials from another company.' });
+    }
+
     await prisma.material.delete({ where: { id: req.params.id } });
     res.json({ message: 'Material deleted.' });
   } catch (error) {
@@ -235,6 +279,10 @@ router.post('/:id/stock', authenticate, authorize('BUSINESS_OWNER'), async (req,
       return res.status(404).json({ error: 'Material not found.' });
     }
 
+    if (material.companyId !== req.user.companyId && material.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const previousQty = material.quantity;
     let newQty;
 
@@ -249,7 +297,6 @@ router.post('/:id/stock', authenticate, authorize('BUSINESS_OWNER'), async (req,
       newQty = previousQty - quantity;
     }
 
-    // Update stock and create history record in a transaction
     const [updatedMaterial, stockUpdate] = await prisma.$transaction([
       prisma.material.update({
         where: { id: req.params.id },
@@ -269,8 +316,7 @@ router.post('/:id/stock', authenticate, authorize('BUSINESS_OWNER'), async (req,
       }),
     ]);
 
-    // Check low stock after update
-    await checkLowStock(req.params.id, req.user.id);
+    await checkLowStock(req.params.id, req.user.companyId);
 
     res.json({ material: updatedMaterial, stockUpdate });
   } catch (error) {
@@ -282,6 +328,11 @@ router.post('/:id/stock', authenticate, authorize('BUSINESS_OWNER'), async (req,
 // GET /api/materials/:id/stock-history
 router.get('/:id/stock-history', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const material = await prisma.material.findUnique({ where: { id: req.params.id } });
+    if (!material || (material.companyId !== req.user.companyId && material.createdById !== req.user.id)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const history = await prisma.stockUpdate.findMany({
       where: { materialId: req.params.id },
       include: { createdBy: { select: { fullName: true } } },

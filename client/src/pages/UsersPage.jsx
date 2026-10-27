@@ -33,6 +33,7 @@ export default function UsersPage() {
     phone: '',
     position: '',
     skills: '',
+    companyName: '',
   });
 
   useEffect(() => { loadUsers(); }, [search, roleFilter]);
@@ -58,6 +59,7 @@ export default function UsersPage() {
       phone: '',
       position: '',
       skills: '',
+      companyName: '',
     });
     setShowModal(true);
   };
@@ -201,19 +203,19 @@ export default function UsersPage() {
           )}
         </div>
       ) : isStaffOrClient ? (
-        <div className="grid-2">
-          {users.map((u) => (
-            <div key={u.id} className="card" style={{ padding: '24px', display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <div style={{ maxWidth: 640 }}>
+          {users.slice(0, 1).map((u) => (
+            <div key={u.id} className="card" style={{ padding: '28px', display: 'flex', gap: '20px', alignItems: 'center', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
               <div
                 style={{
-                  width: 56,
-                  height: 56,
+                  width: 64,
+                  height: 64,
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.5rem',
+                  fontSize: '1.75rem',
                   fontWeight: 700,
                   color: '#fff',
                 }}
@@ -221,10 +223,16 @@ export default function UsersPage() {
                 {u.fullName?.charAt(0)}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{u.fullName}</h3>
-                  <span className="badge badge-purple"><HiOutlineShieldCheck /> Business Owner</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.3rem' }}>{u.fullName}</h3>
+                  <span className="badge badge-purple"><HiOutlineShieldCheck /> Assigned Business Owner</span>
+                  <span className="badge badge-success">Verified Permanent Link</span>
                 </div>
+                {u.ownedCompany?.name && (
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8', marginBottom: 6 }}>
+                    {u.ownedCompany.name}
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   <span><HiOutlineEnvelope style={{ verticalAlign: 'middle', marginRight: 6 }} /> {u.email}</span>
                   {u.phone && <span><HiOutlinePhone style={{ verticalAlign: 'middle', marginRight: 6 }} /> {u.phone}</span>}
@@ -312,6 +320,17 @@ export default function UsersPage() {
                 required
               />
             </div>
+            {isAdmin && !editUser && (
+              <div className="form-group">
+                <label className="form-label">Company / Organization Name</label>
+                <input
+                  className="form-input"
+                  value={form.companyName || ''}
+                  onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                  placeholder="e.g. Acme Construction Co."
+                />
+              </div>
+            )}
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Email *</label>

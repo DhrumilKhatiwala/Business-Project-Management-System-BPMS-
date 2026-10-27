@@ -8,10 +8,14 @@ const router = express.Router();
 router.get('/overview', authenticate, authorize('CLIENT'), async (req, res) => {
   try {
     const clientId = req.user.id;
+    const where = { clientId };
+    if (req.user.companyId) {
+      where.companyId = req.user.companyId;
+    }
 
-    // Fetch client's contracted projects from MongoDB
-    let projects = await prisma.project.findMany({
-      where: { clientId },
+    // Fetch ONLY client's contracted projects
+    const projects = await prisma.project.findMany({
+      where,
       include: {
         createdBy: { select: { fullName: true, email: true, phone: true } },
         milestones: { orderBy: { dueDate: 'asc' } },
@@ -24,36 +28,19 @@ router.get('/overview', authenticate, authorize('CLIENT'), async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Fallback: If no projects assigned to this specific client yet, show all active projects for demo/preview
-    if (projects.length === 0) {
-      projects = await prisma.project.findMany({
-        include: {
-          createdBy: { select: { fullName: true, email: true, phone: true } },
-          milestones: { orderBy: { dueDate: 'asc' } },
-          tasks: { select: { id: true, title: true, status: true, priority: true } },
-          invoices: {
-            include: { payments: { orderBy: { paymentDate: 'desc' } } },
-            orderBy: { createdAt: 'desc' },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      });
-    }
-
-    // Financial calculations
-    const allInvoices = projects.flatMap(p => p.invoices || []);
+    // Financial calculations strictly for this client's projects
+    const allInvoices = projects.flatMap((p) => p.invoices || []);
     const totalInvoiced = allInvoices.reduce((s, inv) => s + (inv.amount || 0), 0);
     const totalPaid = allInvoices.reduce((s, inv) => s + (inv.paidAmount || 0), 0);
     const totalPending = totalInvoiced - totalPaid;
 
-    const inExecution = projects.filter(p => p.status === 'IN_PROGRESS').length;
-    const delivered = projects.filter(p => p.status === 'COMPLETED').length;
+    const inExecution = projects.filter((p) => p.status === 'IN_PROGRESS').length;
+    const delivered = projects.filter((p) => p.status === 'COMPLETED').length;
 
-    // Synthesize notifications from milestones and project status
+    // Synthesize notifications from milestones and invoices
     const notifications = [];
-    projects.forEach(p => {
-      p.milestones.forEach(m => {
+    projects.forEach((p) => {
+      p.milestones.forEach((m) => {
         if (m.status === 'COMPLETED') {
           notifications.push({
             id: `notif-m-${m.id}`,
@@ -71,7 +58,7 @@ router.get('/overview', authenticate, authorize('CLIENT'), async (req, res) => {
         }
       });
 
-      p.invoices.forEach(inv => {
+      p.invoices.forEach((inv) => {
         if (inv.status === 'PAID') {
           notifications.push({
             id: `notif-inv-${inv.id}`,
@@ -85,11 +72,23 @@ router.get('/overview', authenticate, authorize('CLIENT'), async (req, res) => {
 
     notifications.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Fetch assigned owner details
+    let assignedOwner = req.user.assignedOwner;
+    if (!assignedOwner && req.user.ownerId) {
+      assignedOwner = await prisma.user.findUnique({
+        where: { id: req.user.ownerId },
+        select: { id: true, fullName: true, email: true, phone: true },
+      });
+    }
+
     res.json({
       client: {
         id: req.user.id,
         fullName: req.user.fullName,
         email: req.user.email,
+        phone: req.user.phone,
+        companyName: req.user.company?.name || null,
+        assignedOwner: assignedOwner || null,
       },
       stats: {
         totalProjects: projects.length,
@@ -130,6 +129,11 @@ router.get('/projects/:id', authenticate, authorize('CLIENT'), async (req, res) 
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found.' });
+    }
+
+    // Enforce that client can ONLY view projects contracted to themselves
+    if (project.clientId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You are not authorized to view this project.' });
     }
 
     res.json(project);

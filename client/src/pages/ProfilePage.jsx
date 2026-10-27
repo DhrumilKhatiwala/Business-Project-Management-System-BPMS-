@@ -17,6 +17,7 @@ export default function ProfilePage() {
   // Profile Form state
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [companyName, setCompanyName] = useState(user?.companyName || user?.company?.name || '');
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Password Form state
@@ -35,6 +36,7 @@ export default function ProfilePage() {
       setProfileData(res.data);
       setFullName(res.data.fullName || '');
       setPhone(res.data.phone || '');
+      setCompanyName(res.data.companyName || res.data.company?.name || res.data.ownedCompany?.name || '');
     } catch (err) {
       toast.error('Failed to load profile details.');
     } finally {
@@ -47,10 +49,17 @@ export default function ProfilePage() {
     if (!fullName.trim()) {
       return toast.error('Full name is required.');
     }
+    if (user?.role === 'BUSINESS_OWNER' && !companyName.trim()) {
+      return toast.error('Company name is required.');
+    }
 
     setSavingProfile(true);
     try {
-      const res = await authAPI.updateProfile({ fullName, phone });
+      const res = await authAPI.updateProfile({
+        fullName,
+        phone,
+        ...(user?.role === 'BUSINESS_OWNER' && { companyName: companyName.trim() }),
+      });
       updateUser(res.data.user);
       setProfileData(prev => ({ ...prev, ...res.data.user }));
       toast.success('Profile updated successfully!');
@@ -182,41 +191,97 @@ export default function ProfilePage() {
 
           {/* ── Role Scope / Quick Context ── */}
           {user.role === 'WORKER' && (
+            <>
+              <div className="card" style={{ padding: 20 }}>
+                <div className="card-header mb-12">
+                  <h3 style={{ fontSize: '0.95rem' }}>Assigned Business Owner</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Business Owner: </span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{profileData?.assignedOwner?.fullName || 'Sarah Jenkins'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Email: </span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{profileData?.assignedOwner?.email || '—'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Company: </span>
+                    <strong style={{ color: '#818cf8' }}>{profileData?.companyName || profileData?.assignedOwner?.ownedCompany?.name || '—'}</strong>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                      <HiOutlineShieldCheck style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                      Verified Permanent Binding
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: 20 }}>
+                <div className="card-header mb-12">
+                  <h3 style={{ fontSize: '0.95rem' }}>Workforce Profile</h3>
+                </div>
+                <div style={{ fontSize: '0.85rem', marginBottom: 12 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Position: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{profileData?.worker?.position || 'Field Staff'}</strong>
+                </div>
+                {workerSkills.length > 0 && (
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block', marginBottom: 6 }}>Skills:</span>
+                    <div className="flex flex-wrap gap-6">
+                      {workerSkills.map((s, idx) => (
+                        <span key={idx} className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {workerAssignments.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: '1px solid var(--border-color)', paddingTop: 12 }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block', marginBottom: 8 }}>
+                      Active Projects ({workerAssignments.length})
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {workerAssignments.map((a) => (
+                        <div key={a.project.id} className="flex justify-between items-center" style={{ fontSize: '0.8rem' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>{a.project.name}</span>
+                          <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>{a.project.progress}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {user.role === 'CLIENT' && (
             <div className="card" style={{ padding: 20 }}>
               <div className="card-header mb-12">
-                <h3 style={{ fontSize: '0.95rem' }}>Workforce Profile</h3>
+                <h3 style={{ fontSize: '0.95rem' }}>Contracted Business Owner</h3>
               </div>
-              <div style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-                <span style={{ color: 'var(--text-muted)' }}>Position: </span>
-                <strong style={{ color: 'var(--text-primary)' }}>{profileData?.worker?.position || 'Field Staff'}</strong>
-              </div>
-              {workerSkills.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.85rem' }}>
                 <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block', marginBottom: 6 }}>Skills:</span>
-                  <div className="flex flex-wrap gap-6">
-                    {workerSkills.map((s, idx) => (
-                      <span key={idx} className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
-                        {s}
-                      </span>
-                    ))}
-                  </div>
+                  <span style={{ color: 'var(--text-muted)' }}>Business Owner: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{profileData?.assignedOwner?.fullName || 'Sarah Jenkins'}</strong>
                 </div>
-              )}
-              {workerAssignments.length > 0 && (
-                <div style={{ marginTop: 16, borderTop: '1px solid var(--border-color)', paddingTop: 12 }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block', marginBottom: 8 }}>
-                    Active Projects ({workerAssignments.length})
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Company: </span>
+                  <strong style={{ color: '#818cf8' }}>{profileData?.companyName || '—'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Email: </span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{profileData?.assignedOwner?.email || '—'}</span>
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                    <HiOutlineShieldCheck style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Authorized Client Access
                   </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {workerAssignments.map((a) => (
-                      <div key={a.project.id} className="flex justify-between items-center" style={{ fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>{a.project.name}</span>
-                        <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>{a.project.progress}%</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -224,7 +289,17 @@ export default function ProfilePage() {
             <div className="card" style={{ padding: 20 }}>
               <div className="flex items-center gap-10 mb-8" style={{ color: 'var(--accent-primary-hover)' }}>
                 <HiOutlineShieldCheck style={{ fontSize: '1.25rem' }} />
-                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Administrative Authority</span>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Company Organization</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.85rem', marginBottom: 12 }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Company: </span>
+                  <strong style={{ color: '#818cf8' }}>{profileData?.company?.name || profileData?.ownedCompany?.name || profileData?.companyName || 'Your Business'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Tenancy Status: </span>
+                  <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Isolated Tenant Partition</span>
+                </div>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
                 Full system authority to manage accounts, deploy workforce, commission projects, and control inventory supply chain.
@@ -263,6 +338,24 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+
+              {user?.role === 'BUSINESS_OWNER' && (
+                <div className="form-group mb-16">
+                  <label className="form-label">Company / Organization Name *</label>
+                  <div style={{ position: 'relative' }}>
+                    <HiOutlineBuildingOffice2 style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="e.g. Acme Construction Co."
+                      style={{ paddingLeft: 40 }}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="form-group mb-16">
                 <label className="form-label">Email Address (Managed by Admin)</label>

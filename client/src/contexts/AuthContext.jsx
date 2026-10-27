@@ -42,6 +42,24 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  const registerOwner = async (data) => {
+    const res = await authAPI.registerOwner(data);
+    const { token, user: userData } = res.data;
+    localStorage.setItem('bpms_token', token);
+    localStorage.setItem('bpms_user', JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  };
+
+  const registerClient = async (data) => {
+    const res = await authAPI.registerClient(data);
+    const { token, user: userData } = res.data;
+    localStorage.setItem('bpms_token', token);
+    localStorage.setItem('bpms_user', JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  };
+
   const logout = () => {
     localStorage.removeItem('bpms_token');
     localStorage.removeItem('bpms_user');
@@ -57,7 +75,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, updateUser }}>
+    <AuthContext.Provider value={{ user, login, registerOwner, registerClient, logout, loading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

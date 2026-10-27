@@ -111,6 +111,29 @@ export default function Sidebar({ isOpen, onClose }) {
         )}
       </div>
 
+      {(user?.companyName || user?.company?.name) && (
+        <div style={{
+          padding: '8px 12px',
+          margin: '12px 14px 0 14px',
+          background: 'rgba(99, 102, 241, 0.08)',
+          border: '1px solid rgba(99, 102, 241, 0.2)',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <HiOutlineBuildingOffice2 style={{ color: '#818cf8', fontSize: '1.1rem', flexShrink: 0 }} />
+          <div style={{ overflow: 'hidden', lineHeight: 1.2 }}>
+            <div style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', fontWeight: 600 }}>
+              {user?.role === 'BUSINESS_OWNER' ? 'Organization' : 'Assigned Company'}
+            </div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={user?.companyName || user?.company?.name}>
+              {user?.companyName || user?.company?.name}
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="sidebar-nav">
         <div className="nav-section">
           <span className="nav-section-label">Main Menu</span>

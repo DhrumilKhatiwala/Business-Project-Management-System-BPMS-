@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import BrandLogo from '../components/BrandLogo';
 import toast from 'react-hot-toast';
@@ -87,6 +87,13 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: 16, marginBottom: 4, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+          Don't have an account?{' '}
+          <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
+            Register as Business Owner or Client
+          </Link>
+        </div>
 
         <div className="demo-chips-box">
           <div className="demo-chips-label">

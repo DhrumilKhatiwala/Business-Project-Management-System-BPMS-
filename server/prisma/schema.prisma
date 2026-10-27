@@ -7,6 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Module 0: Organization & Multi-Tenancy ───────────────
+
+model Company {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  ownerId     String    @unique @db.ObjectId
+  owner       User      @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Tenant Collections
+  users       User[]    @relation("CompanyUsers")
+  workers     Worker[]
+  projects    Project[]
+  materials   Material[]
+  alerts      LowStockAlert[]
+  invoices    Invoice[]
+  expenses    Expense[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 // ─── Module 1: Accounts & Access ─────────────────────────
 
 model User {
@@ -20,18 +42,31 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Tenant / Organization Scoping
+  companyId String?  @db.ObjectId
+  ownerId   String?  @db.ObjectId // For Workers and Clients: points to their assigned Business Owner
+
+  ownedCompany     Company?      @relation("CompanyOwner")
+  company          Company?      @relation("CompanyUsers", fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedOwner    User?         @relation("OwnerAssignedUsers", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subordinateUsers User[]        @relation("OwnerAssignedUsers")
+  ownedWorkers     Worker[]      @relation("WorkerOwner")
+
   // Relations
-  worker          Worker?
-  createdProjects Project[]     @relation("ProjectCreator")
-  clientProjects  Project[]     @relation("ClientProjects")
-  stockUpdates    StockUpdate[]
-  createdInvoices Invoice[]     @relation("InvoiceCreator")
-  clientInvoices  Invoice[]     @relation("ClientInvoices")
-  recordedPayments Payment[]    @relation("PaymentRecorder")
-  createdExpenses Expense[]     @relation("ExpenseCreator")
+  worker           Worker?
+  createdProjects  Project[]     @relation("ProjectCreator")
+  clientProjects   Project[]     @relation("ClientProjects")
+  createdMaterials Material[]    @relation("MaterialCreator")
+  stockUpdates     StockUpdate[]
+  createdInvoices  Invoice[]     @relation("InvoiceCreator")
+  clientInvoices   Invoice[]     @relation("ClientInvoices")
+  recordedPayments Payment[]     @relation("PaymentRecorder")
+  createdExpenses  Expense[]     @relation("ExpenseCreator")
 
   @@index([role])
   @@index([status])
+  @@index([companyId])
+  @@index([ownerId])
 }
 
 // ─── Module 2: Workforce & Projects ──────────────────────
@@ -43,11 +78,19 @@ model Worker {
   skills   String? @default("[]") // JSON string of skills array
   status   String  @default("ACTIVE") // ACTIVE, INACTIVE
 
+  // Permanent Tenant & Business Owner Association
+  companyId String? @db.ObjectId
+  ownerId   String? @db.ObjectId
+
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company?            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner       User?               @relation("WorkerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   assignments ProjectAssignment[]
   tasks       Task[]
 
   @@index([status])
+  @@index([companyId])
+  @@index([ownerId])
 }
 
 model Project {
@@ -60,9 +103,11 @@ model Project {
   progress    Int       @default(0) // 0-100
   createdById String    @db.ObjectId
   clientId    String?   @db.ObjectId
+  companyId   String?   @db.ObjectId
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  company     Company?            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdBy   User                @relation("ProjectCreator", fields: [createdById], references: [id])
   client      User?               @relation("ClientProjects", fields: [clientId], references: [id])
   tasks       Task[]
@@ -75,6 +120,7 @@ model Project {
   @@index([status])
   @@index([createdById])
   @@index([clientId])
+  @@index([companyId])
 }
 
 model Task {
@@ -140,9 +186,13 @@ model Material {
   costPerUnit   Float    @default(0)
   supplier      String?
   status        String   @default("ACTIVE") // ACTIVE, INACTIVE
+  companyId     String?  @db.ObjectId
+  createdById   String?  @db.ObjectId
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  company            Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy          User?             @relation("MaterialCreator", fields: [createdById], references: [id])
   stockUpdates       StockUpdate[]
   lowStockAlerts     LowStockAlert[]
   projectAllocations ProjectMaterial[]
@@ -150,6 +200,8 @@ model Material {
   @@index([name])
   @@index([category])
   @@index([status])
+  @@index([companyId])
+  @@index([createdById])
 }
 
 model StockUpdate {
@@ -176,13 +228,16 @@ model LowStockAlert {
   currentQuantity Int
   minStockLevel   Int
   status          String    @default("ACTIVE") // ACTIVE, RESOLVED
+  companyId       String?   @db.ObjectId
   createdAt       DateTime  @default(now())
   resolvedAt      DateTime?
 
   material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([materialId])
   @@index([status])
+  @@index([companyId])
 }
 
 model ProjectMaterial {
@@ -215,18 +270,21 @@ model Invoice {
   notes         String?
   items         String?      @default("[]") // JSON string of [{ description, quantity, unitPrice, total }]
   createdById   String       @db.ObjectId
+  companyId     String?      @db.ObjectId
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   client        User?        @relation("ClientInvoices", fields: [clientId], references: [id])
   createdBy     User         @relation("InvoiceCreator", fields: [createdById], references: [id])
+  company       Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   payments      Payment[]
 
   @@index([projectId])
   @@index([clientId])
   @@index([status])
   @@index([createdById])
+  @@index([companyId])
 }
 
 model Payment {
@@ -257,13 +315,16 @@ model Expense {
   projectId   String?   @db.ObjectId
   notes       String?
   createdById String    @db.ObjectId
+  companyId   String?   @db.ObjectId
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy   User      @relation("ExpenseCreator", fields: [createdById], references: [id])
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([category])
   @@index([createdById])
+  @@index([companyId])
 }

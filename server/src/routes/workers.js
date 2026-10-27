@@ -1,10 +1,11 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Helper to ensure skills is an array
+// Helper to format worker skills as array
 function formatWorker(worker) {
   if (!worker) return worker;
   let skills = [];
@@ -15,17 +16,24 @@ function formatWorker(worker) {
       skills = JSON.parse(worker.skills);
       if (!Array.isArray(skills)) skills = [worker.skills];
     } catch {
-      skills = worker.skills ? worker.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+      skills = worker.skills ? worker.skills.split(',').map((s) => s.trim()).filter(Boolean) : [];
     }
   }
   return { ...worker, skills };
 }
 
-// GET /api/workers
+// GET /api/workers - List workers for current Business Owner's company ONLY
 router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { search, status } = req.query;
-    const where = {};
+    const companyId = req.user.companyId || '__NO_COMPANY__';
+
+    const where = {
+      OR: [
+        { companyId },
+        { ownerId: req.user.id },
+      ],
+    };
 
     if (status) where.status = status;
     if (search) {
@@ -41,7 +49,7 @@ router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
       where,
       include: {
         user: {
-          select: { id: true, fullName: true, email: true, phone: true, status: true },
+          select: { id: true, fullName: true, email: true, phone: true, status: true, companyId: true, ownerId: true },
         },
         assignments: {
           include: {
@@ -62,14 +70,20 @@ router.get('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   }
 });
 
-// GET /api/workers/me - Current worker's profile
+// GET /api/workers/me - Current worker's profile with verified Owner and Company details
 router.get('/me', authenticate, authorize('WORKER'), async (req, res) => {
   try {
     const worker = await prisma.worker.findUnique({
       where: { userId: req.user.id },
       include: {
         user: {
-          select: { id: true, fullName: true, email: true, phone: true, status: true },
+          select: { id: true, fullName: true, email: true, phone: true, status: true, companyId: true, ownerId: true },
+        },
+        owner: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
+        company: {
+          select: { id: true, name: true, description: true },
         },
         assignments: {
           include: {
@@ -91,7 +105,21 @@ router.get('/me', authenticate, authorize('WORKER'), async (req, res) => {
       return res.status(404).json({ error: 'Worker profile not found.' });
     }
 
-    res.json(formatWorker(worker));
+    // Hydrate owner details if needed
+    let ownerDetails = worker.owner;
+    if (!ownerDetails && worker.ownerId) {
+      ownerDetails = await prisma.user.findUnique({
+        where: { id: worker.ownerId },
+        select: { id: true, fullName: true, email: true, phone: true },
+      });
+    }
+
+    const formatted = formatWorker(worker);
+    res.json({
+      ...formatted,
+      assignedOwner: ownerDetails || null,
+      company: worker.company || null,
+    });
   } catch (error) {
     console.error('Get my profile error:', error);
     res.status(500).json({ error: 'Failed to fetch profile.' });
@@ -126,14 +154,14 @@ router.get('/me/tasks', authenticate, authorize('WORKER'), async (req, res) => {
   }
 });
 
-// GET /api/workers/:id
+// GET /api/workers/:id - Get worker by ID (scoped to business owner's company)
 router.get('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const worker = await prisma.worker.findUnique({
       where: { id: req.params.id },
       include: {
         user: {
-          select: { id: true, fullName: true, email: true, phone: true, status: true, createdAt: true },
+          select: { id: true, fullName: true, email: true, phone: true, status: true, createdAt: true, companyId: true, ownerId: true },
         },
         assignments: {
           include: {
@@ -153,6 +181,11 @@ router.get('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
       return res.status(404).json({ error: 'Worker not found.' });
     }
 
+    // Enforce tenant boundary
+    if (worker.companyId !== req.user.companyId && worker.ownerId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Worker belongs to another company.' });
+    }
+
     res.json(formatWorker(worker));
   } catch (error) {
     console.error('Get worker error:', error);
@@ -160,15 +193,25 @@ router.get('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
   }
 });
 
-// PUT /api/workers/:id
+// PUT /api/workers/:id - Update worker
 router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
-    const { position, skills } = req.body;
+    const existing = await prisma.worker.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Worker not found.' });
+    }
 
+    if (existing.companyId !== req.user.companyId && existing.ownerId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot modify workers from another company.' });
+    }
+
+    const { position, skills } = req.body;
     const data = {};
-    if (position !== undefined) data.position = position;
+    if (position !== undefined) data.position = position ? position.trim() : null;
     if (skills !== undefined) {
-      data.skills = Array.isArray(skills) ? JSON.stringify(skills) : String(skills || '[]');
+      data.skills = Array.isArray(skills)
+        ? JSON.stringify(skills)
+        : JSON.stringify(String(skills).split(',').map((s) => s.trim()).filter(Boolean));
     }
 
     const worker = await prisma.worker.update({
@@ -188,12 +231,21 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
   }
 });
 
-// PATCH /api/workers/:id/status
+// PATCH /api/workers/:id/status - Toggle worker status
 router.patch('/:id/status', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { status } = req.body;
     if (!['ACTIVE', 'INACTIVE'].includes(status)) {
       return res.status(400).json({ error: 'Status must be ACTIVE or INACTIVE.' });
+    }
+
+    const existing = await prisma.worker.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Worker not found.' });
+    }
+
+    if (existing.companyId !== req.user.companyId && existing.ownerId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot modify workers from another company.' });
     }
 
     const worker = await prisma.worker.update({
@@ -204,6 +256,14 @@ router.patch('/:id/status', authenticate, authorize('BUSINESS_OWNER'), async (re
       },
     });
 
+    // Also sync User status
+    if (worker.userId) {
+      await prisma.user.update({
+        where: { id: worker.userId },
+        data: { status },
+      });
+    }
+
     res.json(formatWorker(worker));
   } catch (error) {
     console.error('Update worker status error:', error);
@@ -211,7 +271,7 @@ router.patch('/:id/status', authenticate, authorize('BUSINESS_OWNER'), async (re
   }
 });
 
-// POST /api/workers - Create new worker (creates user + worker profile)
+// POST /api/workers - Create new worker (permanently bound to Business Owner's company)
 router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { fullName, email, password, phone, position, skills } = req.body;
@@ -229,21 +289,27 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
       return res.status(409).json({ error: 'A user with this email already exists.' });
     }
 
-    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 12);
+    const companyId = req.user.companyId;
+    const ownerId = req.user.id;
 
+    // Create user permanently associated with the business owner and company
     const user = await prisma.user.create({
       data: {
         fullName: fullName.trim(),
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         password: hashedPassword,
         role: 'WORKER',
         phone: phone ? phone.trim() : null,
+        companyId,
+        ownerId,
+        status: 'ACTIVE',
       },
     });
 
@@ -257,16 +323,25 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       }
     }
 
+    // Create worker profile with verified permanent relationship
     const worker = await prisma.worker.create({
       data: {
         userId: user.id,
         position: position ? position.trim() : null,
         skills: formattedSkills,
         status: 'ACTIVE',
+        companyId,
+        ownerId,
       },
       include: {
         user: {
-          select: { id: true, fullName: true, email: true, phone: true, status: true, createdAt: true },
+          select: { id: true, fullName: true, email: true, phone: true, status: true, createdAt: true, companyId: true, ownerId: true },
+        },
+        owner: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
+        company: {
+          select: { id: true, name: true },
         },
       },
     });
@@ -292,7 +367,11 @@ router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res
       return res.status(404).json({ error: 'Worker not found.' });
     }
 
-    // 1. Unassign tasks assigned to this worker
+    if (worker.companyId !== req.user.companyId && worker.ownerId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot delete workers from another company.' });
+    }
+
+    // 1. Unassign tasks
     await prisma.task.updateMany({
       where: { assignedToId: worker.id },
       data: { assignedToId: null },

@@ -54,15 +54,15 @@ export default function DashboardPage() {
   const invStats = inventoryData?.stats || {};
 
   // Calculations for visual gauges
-  const totalProj = projStats.totalProjects || 1;
-  const inProgressPct = Math.round(((projStats.activeProjects || 0) / totalProj) * 100);
-  const completedPct = Math.round(((projStats.completedProjects || 0) / totalProj) * 100);
-  const onHoldPct = Math.max(0, 100 - inProgressPct - completedPct);
+  const totalProj = projStats.totalProjects || 0;
+  const inProgressPct = totalProj > 0 ? Math.round(((projStats.activeProjects || 0) / totalProj) * 100) : 0;
+  const completedPct = totalProj > 0 ? Math.round(((projStats.completedProjects || 0) / totalProj) * 100) : 0;
+  const onHoldPct = totalProj > 0 ? Math.max(0, 100 - inProgressPct - completedPct) : 0;
 
-  const totalMats = invStats.totalMaterials || 1;
-  const inStockPct = Math.round(((invStats.inStock || 0) / totalMats) * 100);
-  const lowStockPct = Math.round(((invStats.lowStock || 0) / totalMats) * 100);
-  const outStockPct = Math.max(0, 100 - inStockPct - lowStockPct);
+  const totalMats = invStats.totalMaterials || 0;
+  const inStockPct = totalMats > 0 ? Math.round(((invStats.inStock || 0) / totalMats) * 100) : 0;
+  const lowStockPct = totalMats > 0 ? Math.round(((invStats.lowStock || 0) / totalMats) * 100) : 0;
+  const outStockPct = totalMats > 0 ? Math.max(0, 100 - inStockPct - lowStockPct) : 0;
 
   const todayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -79,7 +79,13 @@ export default function DashboardPage() {
           <h2>Welcome back, {user.fullName}!</h2>
           <p>
             <span className="pulse-dot" />
-            <span>{user.role === 'ADMIN' ? 'System Administrator Console' : 'System Operational'}</span>
+            <span>
+              {user.role === 'ADMIN'
+                ? 'System Administrator Console'
+                : user.role === 'BUSINESS_OWNER'
+                ? user.companyName || data?.company?.name || 'Company Workspace'
+                : user.companyName || data?.company?.name || 'Authorized Workspace'}
+            </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
             <HiOutlineCalendar style={{ verticalAlign: 'middle' }} />
             <span>{todayStr}</span>
@@ -263,25 +269,33 @@ export default function DashboardPage() {
                 </span>
                 <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{projStats.totalProjects || 0} total</span>
               </div>
-              <div className="distribution-bar">
-                <div className="distribution-seg blue" style={{ width: `${inProgressPct}%` }} title={`In Progress: ${inProgressPct}%`} />
-                <div className="distribution-seg green" style={{ width: `${completedPct}%` }} title={`Completed: ${completedPct}%`} />
-                <div className="distribution-seg yellow" style={{ width: `${onHoldPct}%` }} title={`On Hold: ${onHoldPct}%`} />
-              </div>
-              <div className="distribution-legend">
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#3b82f6' }} />
-                  <span>In Progress ({inProgressPct}%)</span>
+              {totalProj === 0 ? (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.88rem' }}>
+                  No projects in your workspace yet. Click <strong>"New Project"</strong> above to launch your first contract.
                 </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#10b981' }} />
-                  <span>Completed ({completedPct}%)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#f59e0b' }} />
-                  <span>On Hold / Planning ({onHoldPct}%)</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="distribution-bar">
+                    <div className="distribution-seg blue" style={{ width: `${inProgressPct}%` }} title={`In Progress: ${inProgressPct}%`} />
+                    <div className="distribution-seg green" style={{ width: `${completedPct}%` }} title={`Completed: ${completedPct}%`} />
+                    <div className="distribution-seg yellow" style={{ width: `${onHoldPct}%` }} title={`On Hold: ${onHoldPct}%`} />
+                  </div>
+                  <div className="distribution-legend">
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#3b82f6' }} />
+                      <span>In Progress ({inProgressPct}%)</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#10b981' }} />
+                      <span>Completed ({completedPct}%)</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#f59e0b' }} />
+                      <span>On Hold / Planning ({onHoldPct}%)</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Inventory Health Meter */}
@@ -293,25 +307,33 @@ export default function DashboardPage() {
                 </span>
                 <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{invStats.totalMaterials || 0} items</span>
               </div>
-              <div className="distribution-bar">
-                <div className="distribution-seg green" style={{ width: `${inStockPct}%` }} title={`In Stock: ${inStockPct}%`} />
-                <div className="distribution-seg yellow" style={{ width: `${lowStockPct}%` }} title={`Low Stock: ${lowStockPct}%`} />
-                <div className="distribution-seg red" style={{ width: `${outStockPct}%` }} title={`Out of Stock: ${outStockPct}%`} />
-              </div>
-              <div className="distribution-legend">
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#10b981' }} />
-                  <span>In Stock ({inStockPct}%)</span>
+              {totalMats === 0 ? (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.88rem' }}>
+                  No inventory items tracked yet. Click <strong>"Inventory"</strong> above to record your materials.
                 </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#f59e0b' }} />
-                  <span>Low Stock ({lowStockPct}%)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: '#ef4444' }} />
-                  <span>Out of Stock ({outStockPct}%)</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="distribution-bar">
+                    <div className="distribution-seg green" style={{ width: `${inStockPct}%` }} title={`In Stock: ${inStockPct}%`} />
+                    <div className="distribution-seg yellow" style={{ width: `${lowStockPct}%` }} title={`Low Stock: ${lowStockPct}%`} />
+                    <div className="distribution-seg red" style={{ width: `${outStockPct}%` }} title={`Out of Stock: ${outStockPct}%`} />
+                  </div>
+                  <div className="distribution-legend">
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#10b981' }} />
+                      <span>In Stock ({inStockPct}%)</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#f59e0b' }} />
+                      <span>Low Stock ({lowStockPct}%)</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot" style={{ background: '#ef4444' }} />
+                      <span>Out of Stock ({outStockPct}%)</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -378,6 +400,63 @@ export default function DashboardPage() {
 
       {user.role === 'WORKER' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Worker's Verified Business Owner & Company Association Card */}
+          <div
+            className="card"
+            style={{
+              padding: '20px 24px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(59, 130, 246, 0.04))',
+              border: '1px solid rgba(99, 102, 241, 0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}
+                >
+                  {data?.assignedOwner?.fullName?.charAt(0) || user.companyName?.charAt(0) || 'O'}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="badge badge-purple">
+                      <HiOutlineBuildingOffice2 style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                      My Assigned Business Owner
+                    </span>
+                    <span className="badge badge-success">Verified Permanent Link</span>
+                  </div>
+                  <h3 style={{ margin: '6px 0 3px', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                    {data?.assignedOwner?.fullName || user.companyName || 'Business Owner'}
+                  </h3>
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    {(data?.company?.name || user.companyName) && (
+                      <span><strong>Company:</strong> {data?.company?.name || user.companyName}</span>
+                    )}
+                    {data?.assignedOwner?.email && (
+                      <span><strong>Email:</strong> {data.assignedOwner.email}</span>
+                    )}
+                    {data?.assignedOwner?.phone && (
+                      <span><strong>Phone:</strong> {data.assignedOwner.phone}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/accounts/users')}>
+                <span>View Owner Contact</span>
+                <HiOutlineArrowRight />
+              </button>
+            </div>
+          </div>
           {/* Worker Stats */}
           <div className="stats-grid">
             <div className="stat-card">
@@ -506,6 +585,63 @@ export default function DashboardPage() {
 
       {user.role === 'CLIENT' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Client's Contracted Business Owner & Company Badge */}
+          <div
+            className="card"
+            style={{
+              padding: '20px 24px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.04))',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}
+                >
+                  {data?.assignedOwner?.fullName?.charAt(0) || user.companyName?.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="badge badge-success">
+                      <HiOutlineBuildingOffice2 style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                      Contracted Business Owner
+                    </span>
+                    <span className="badge badge-neutral">Client Workspace</span>
+                  </div>
+                  <h3 style={{ margin: '6px 0 3px', fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+                    {data?.assignedOwner?.fullName || user.companyName || 'Business Owner'}
+                  </h3>
+                  <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    {(data?.company?.name || user.companyName) && (
+                      <span><strong>Company:</strong> {data?.company?.name || user.companyName}</span>
+                    )}
+                    {data?.assignedOwner?.email && (
+                      <span><strong>Email:</strong> {data.assignedOwner.email}</span>
+                    )}
+                    {data?.assignedOwner?.phone && (
+                      <span><strong>Phone:</strong> {data.assignedOwner.phone}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/accounts/users')}>
+                <span>View Manager Profile</span>
+                <HiOutlineArrowRight />
+              </button>
+            </div>
+          </div>
           {/* Client Stats */}
           <div className="stats-grid">
             <div className="stat-card">

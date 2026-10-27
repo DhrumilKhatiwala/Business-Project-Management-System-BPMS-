@@ -18,6 +18,7 @@ async function main() {
   await prisma.projectAssignment.deleteMany();
   await prisma.project.deleteMany();
   await prisma.material.deleteMany();
+  await prisma.company.deleteMany();
   await prisma.worker.deleteMany();
   await prisma.user.deleteMany();
 
@@ -51,6 +52,20 @@ async function main() {
     },
   });
 
+  // Business Owner Company
+  const ownerCompany = await prisma.company.create({
+    data: {
+      name: 'Jenkins Construction & Interiors',
+      description: 'Commercial and residential construction management',
+      ownerId: owner.id,
+    },
+  });
+
+  await prisma.user.update({
+    where: { id: owner.id },
+    data: { companyId: ownerCompany.id },
+  });
+
   // Workers
   const worker1User = await prisma.user.create({
     data: {
@@ -60,6 +75,8 @@ async function main() {
       role: 'WORKER',
       phone: '+1 (555) 019-2832',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -69,6 +86,8 @@ async function main() {
       position: 'Senior Site Engineer',
       skills: JSON.stringify(['Construction', 'Project Planning', 'Structural Engineering', 'AutoCAD']),
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -80,6 +99,8 @@ async function main() {
       role: 'WORKER',
       phone: '+1 (555) 019-2833',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -89,6 +110,8 @@ async function main() {
       position: 'Master Electrician',
       skills: JSON.stringify(['Electrical Wiring', 'Safety Auditing', 'HVAC Integration']),
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -100,6 +123,8 @@ async function main() {
       role: 'WORKER',
       phone: '+1 (555) 019-2834',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -109,6 +134,8 @@ async function main() {
       position: 'Civil Contractor',
       skills: JSON.stringify(['Carpentry', 'Plumbing', 'Masonry', 'Quality Control']),
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -121,6 +148,8 @@ async function main() {
       role: 'CLIENT',
       phone: '+1 (555) 019-2835',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -132,6 +161,8 @@ async function main() {
       role: 'CLIENT',
       phone: '+1 (555) 019-2836',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      ownerId: owner.id,
     },
   });
 
@@ -147,6 +178,7 @@ async function main() {
       endDate: new Date('2026-12-15'),
       progress: 60,
       createdById: owner.id,
+      companyId: ownerCompany.id,
       clientId: client1.id,
     },
   });
@@ -160,6 +192,7 @@ async function main() {
       endDate: new Date('2027-02-28'),
       progress: 25,
       createdById: owner.id,
+      companyId: ownerCompany.id,
       clientId: client1.id,
     },
   });
@@ -173,6 +206,7 @@ async function main() {
       endDate: new Date('2027-04-30'),
       progress: 0,
       createdById: owner.id,
+      companyId: ownerCompany.id,
       clientId: client2.id,
     },
   });
@@ -306,6 +340,8 @@ async function main() {
       costPerUnit: 14.50,
       supplier: 'National Concrete Supplies Ltd.',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -320,6 +356,8 @@ async function main() {
       costPerUnit: 19.80,
       supplier: 'Apex Steel Mills',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -334,6 +372,8 @@ async function main() {
       costPerUnit: 89.00,
       supplier: 'VoltMax Electric Supplies',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -348,6 +388,8 @@ async function main() {
       costPerUnit: 22.40,
       supplier: 'ProFlow Plumbing Wholesale',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -362,6 +404,8 @@ async function main() {
       costPerUnit: 110.00,
       supplier: 'ColorCraft Coatings',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -376,6 +420,8 @@ async function main() {
       costPerUnit: 7.25,
       supplier: 'Northwoods Timber Co.',
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
+      createdById: owner.id,
     },
   });
 
@@ -429,18 +475,21 @@ async function main() {
       currentQuantity: 24,
       minStockLevel: 40,
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
     },
     {
       materialId: m3.id,
       currentQuantity: 5,
       minStockLevel: 10,
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
     },
     {
       materialId: m4.id,
       currentQuantity: 0,
       minStockLevel: 20,
       status: 'ACTIVE',
+      companyId: ownerCompany.id,
     },
   ];
   for (const data of alertData) {
@@ -465,6 +514,7 @@ async function main() {
         { description: 'Architectural Planning & Engineering Sign-off', quantity: 1, unitPrice: 75000, total: 75000 },
         { description: 'Foundation & Steel Allocation Deposit', quantity: 1, unitPrice: 75000, total: 75000 },
       ]),
+      companyId: ownerCompany.id,
       createdById: owner.id,
     },
   });
@@ -496,6 +546,7 @@ async function main() {
         { description: 'Civil Structure & Brickwork', quantity: 1, unitPrice: 200000, total: 200000 },
         { description: 'Electrical Pre-cabling & Conduit Work', quantity: 1, unitPrice: 120000, total: 120000 },
       ]),
+      companyId: ownerCompany.id,
       createdById: owner.id,
     },
   });
@@ -526,6 +577,7 @@ async function main() {
       items: JSON.stringify([
         { description: 'Site Leveling & Heavy Excavation Advance', quantity: 1, unitPrice: 110000, total: 110000 },
       ]),
+      companyId: ownerCompany.id,
       createdById: owner.id,
     },
   });
@@ -539,6 +591,7 @@ async function main() {
       projectId: project1.id,
       date: new Date('2026-08-22'),
       notes: 'Delivered by Tata Steel',
+      companyId: ownerCompany.id,
       createdById: owner.id,
     },
   });
@@ -551,6 +604,7 @@ async function main() {
       projectId: project1.id,
       date: new Date('2026-08-25'),
       notes: 'Heavy machinery rentals',
+      companyId: ownerCompany.id,
       createdById: owner.id,
     },
   });

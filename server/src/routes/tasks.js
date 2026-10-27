@@ -9,7 +9,7 @@ async function recalculateProjectProgress(projectId) {
   const tasks = await prisma.task.findMany({ where: { projectId } });
   if (tasks.length === 0) return;
 
-  const completed = tasks.filter(t => t.status === 'COMPLETED').length;
+  const completed = tasks.filter((t) => t.status === 'COMPLETED').length;
   const progress = Math.round((completed / tasks.length) * 100);
 
   await prisma.project.update({
@@ -18,27 +18,30 @@ async function recalculateProjectProgress(projectId) {
   });
 }
 
-// GET /api/tasks?projectId=
+// GET /api/tasks
 router.get('/', authenticate, async (req, res) => {
   try {
     const { projectId, status, assignedToId } = req.query;
     const where = {};
 
-    if (projectId) where.projectId = projectId;
-    if (status) where.status = status;
-    if (assignedToId) where.assignedToId = assignedToId;
-
-    // Workers only see their own tasks
-    if (req.user.role === 'WORKER') {
+    if (req.user.role === 'BUSINESS_OWNER') {
+      where.project = { companyId: req.user.companyId };
+    } else if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
       if (!worker) return res.json([]);
       where.assignedToId = worker.id;
+    } else if (req.user.role === 'CLIENT') {
+      where.project = { clientId: req.user.id };
     }
+
+    if (projectId) where.projectId = projectId;
+    if (status) where.status = status;
+    if (assignedToId && req.user.role !== 'WORKER') where.assignedToId = assignedToId;
 
     const tasks = await prisma.task.findMany({
       where,
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, companyId: true } },
         assignedTo: {
           include: { user: { select: { fullName: true } } },
         },
@@ -70,10 +73,17 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       return res.status(404).json({ error: 'Project not found.' });
     }
 
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+    }
+
     if (assignedToId) {
       const worker = await prisma.worker.findUnique({ where: { id: assignedToId } });
       if (!worker) {
         return res.status(404).json({ error: 'Assigned worker not found.' });
+      }
+      if (worker.companyId !== req.user.companyId && worker.ownerId !== req.user.id) {
+        return res.status(403).json({ error: 'Cannot assign a worker belonging to another company.' });
       }
     }
 
@@ -108,7 +118,7 @@ router.get('/:id', authenticate, async (req, res) => {
     const task = await prisma.task.findUnique({
       where: { id: req.params.id },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, companyId: true, clientId: true, createdById: true } },
         assignedTo: {
           include: { user: { select: { fullName: true, email: true } } },
         },
@@ -119,10 +129,18 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Task not found.' });
     }
 
-    // Workers can only view their own tasks
-    if (req.user.role === 'WORKER') {
+    // Role-based tenant checks
+    if (req.user.role === 'BUSINESS_OWNER') {
+      if (task.project?.companyId !== req.user.companyId && task.project?.createdById !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied.' });
+      }
+    } else if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
       if (!worker || task.assignedToId !== worker.id) {
+        return res.status(403).json({ error: 'Access denied.' });
+      }
+    } else if (req.user.role === 'CLIENT') {
+      if (task.project?.clientId !== req.user.id) {
         return res.status(403).json({ error: 'Access denied.' });
       }
     }
@@ -137,18 +155,21 @@ router.get('/:id', authenticate, async (req, res) => {
 // PATCH /api/tasks/:id
 router.patch('/:id', authenticate, async (req, res) => {
   try {
-    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    const task = await prisma.task.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    });
     if (!task) {
       return res.status(404).json({ error: 'Task not found.' });
     }
 
-    // Workers can only update status of their own tasks
+    // Worker role: can only update status of their own assigned tasks
     if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
       if (!worker || task.assignedToId !== worker.id) {
         return res.status(403).json({ error: 'Access denied. This task is not assigned to you.' });
       }
-      // Workers can only update status
+
       const { status } = req.body;
       if (!status) {
         return res.status(400).json({ error: 'Status is required.' });
@@ -167,13 +188,26 @@ router.patch('/:id', authenticate, async (req, res) => {
       return res.json(updatedTask);
     }
 
-    // Business Owner can update everything
+    // Business Owner role
+    if (req.user.role !== 'BUSINESS_OWNER' && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (req.user.role === 'BUSINESS_OWNER') {
+      if (task.project?.companyId !== req.user.companyId && task.project?.createdById !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied. Task belongs to another company.' });
+      }
+    }
+
     const { title, description, status, priority, dueDate, assignedToId } = req.body;
 
     if (assignedToId) {
       const worker = await prisma.worker.findUnique({ where: { id: assignedToId } });
       if (!worker) {
         return res.status(404).json({ error: 'Assigned worker not found.' });
+      }
+      if (req.user.role === 'BUSINESS_OWNER' && worker.companyId !== req.user.companyId && worker.ownerId !== req.user.id) {
+        return res.status(403).json({ error: 'Cannot assign a worker belonging to another company.' });
       }
     }
 
@@ -204,9 +238,16 @@ router.patch('/:id', authenticate, async (req, res) => {
 // DELETE /api/tasks/:id
 router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
-    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    const task = await prisma.task.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    });
     if (!task) {
       return res.status(404).json({ error: 'Task not found.' });
+    }
+
+    if (task.project?.companyId !== req.user.companyId && task.project?.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Task belongs to another company.' });
     }
 
     await prisma.task.delete({ where: { id: req.params.id } });

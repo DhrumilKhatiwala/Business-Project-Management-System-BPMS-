@@ -4,24 +4,61 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/projects
+// Helper: Check and manage low-stock alerts
+async function syncLowStockAlert(materialId, companyId) {
+  const material = await prisma.material.findUnique({ where: { id: materialId } });
+  if (!material) return;
+
+  const compId = companyId || material.companyId;
+
+  if (material.quantity <= material.minStockLevel) {
+    const existing = await prisma.lowStockAlert.findFirst({
+      where: { materialId, status: 'ACTIVE' },
+    });
+    if (!existing) {
+      await prisma.lowStockAlert.create({
+        data: {
+          materialId,
+          currentQuantity: material.quantity,
+          minStockLevel: material.minStockLevel,
+          companyId: compId,
+        },
+      });
+    } else {
+      await prisma.lowStockAlert.update({
+        where: { id: existing.id },
+        data: { currentQuantity: material.quantity },
+      });
+    }
+  } else {
+    await prisma.lowStockAlert.updateMany({
+      where: { materialId, status: 'ACTIVE' },
+      data: { status: 'RESOLVED', resolvedAt: new Date() },
+    });
+  }
+}
+
+// GET /api/projects - List projects scoped by role and company
 router.get('/', authenticate, async (req, res) => {
   try {
     const { search, status } = req.query;
     const where = {};
 
-    if (req.user.role === 'WORKER') {
+    if (req.user.role === 'ADMIN') {
+      // Platform-wide view
+    } else if (req.user.role === 'BUSINESS_OWNER') {
+      // Strictly scoped to Business Owner's company
+      where.companyId = req.user.companyId || '__NO_COMPANY__';
+    } else if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
-      if (worker) {
-        where.assignments = { some: { workerId: worker.id } };
-      } else {
-        return res.json([]);
-      }
+      if (!worker) return res.json([]);
+      where.companyId = req.user.companyId || worker.companyId || '__NO_COMPANY__';
+      where.assignments = { some: { workerId: worker.id } };
     } else if (req.user.role === 'CLIENT') {
-      where.OR = [
-        { clientId: req.user.id },
-        { clientId: null }
-      ];
+      where.clientId = req.user.id;
+      if (req.user.companyId) {
+        where.companyId = req.user.companyId;
+      }
     }
 
     if (search) {
@@ -32,7 +69,7 @@ router.get('/', authenticate, async (req, res) => {
     const projects = await prisma.project.findMany({
       where,
       include: {
-        createdBy: { select: { fullName: true } },
+        createdBy: { select: { fullName: true, email: true } },
         client: { select: { id: true, fullName: true, email: true } },
         _count: { select: { tasks: true, milestones: true, assignments: true, invoices: true } },
       },
@@ -46,13 +83,14 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/projects/:id
+// GET /api/projects/:id - Get project details with authorization check
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
       include: {
         createdBy: { select: { fullName: true, email: true } },
+        client: { select: { id: true, fullName: true, email: true, phone: true } },
         tasks: {
           include: {
             assignedTo: {
@@ -80,12 +118,20 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Project not found.' });
     }
 
-    // Workers can only see projects they're assigned to
-    if (req.user.role === 'WORKER') {
+    // Role-based authorization
+    if (req.user.role === 'BUSINESS_OWNER') {
+      if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+      }
+    } else if (req.user.role === 'WORKER') {
       const worker = await prisma.worker.findUnique({ where: { userId: req.user.id } });
-      const isAssigned = project.assignments.some(a => a.workerId === worker?.id);
+      const isAssigned = project.assignments.some((a) => a.workerId === worker?.id);
       if (!isAssigned) {
-        return res.status(403).json({ error: 'Access denied.' });
+        return res.status(403).json({ error: 'Access denied. You are not assigned to this project.' });
+      }
+    } else if (req.user.role === 'CLIENT') {
+      if (project.clientId !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied. This project is not contracted to you.' });
       }
     }
 
@@ -96,7 +142,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/projects
+// POST /api/projects - Create project for current Business Owner's company
 router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { name, description, startDate, endDate, clientId } = req.body;
@@ -109,6 +155,14 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
       return res.status(400).json({ error: 'End date must be after start date.' });
     }
 
+    // If client is specified, verify client belongs to this company
+    if (clientId) {
+      const client = await prisma.user.findUnique({ where: { id: clientId } });
+      if (!client || (client.companyId !== req.user.companyId && client.ownerId !== req.user.id)) {
+        return res.status(400).json({ error: 'Specified client does not belong to your company.' });
+      }
+    }
+
     const project = await prisma.project.create({
       data: {
         name: name.trim(),
@@ -116,6 +170,7 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         clientId: clientId || null,
+        companyId: req.user.companyId,
         createdById: req.user.id,
       },
       include: {
@@ -132,7 +187,7 @@ router.post('/', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => 
   }
 });
 
-// PUT /api/projects/:id
+// PUT /api/projects/:id - Update project
 router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { name, description, status, startDate, endDate, progress, clientId } = req.body;
@@ -142,12 +197,23 @@ router.put('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) =
       return res.status(404).json({ error: 'Project not found.' });
     }
 
+    if (existing.companyId !== req.user.companyId && existing.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot edit projects from another company.' });
+    }
+
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
       return res.status(400).json({ error: 'End date must be after start date.' });
     }
 
     if (progress !== undefined && (progress < 0 || progress > 100)) {
       return res.status(400).json({ error: 'Progress must be between 0 and 100.' });
+    }
+
+    if (clientId) {
+      const client = await prisma.user.findUnique({ where: { id: clientId } });
+      if (!client || (client.companyId !== req.user.companyId && client.ownerId !== req.user.id)) {
+        return res.status(400).json({ error: 'Specified client does not belong to your company.' });
+      }
     }
 
     const project = await prisma.project.update({
@@ -189,15 +255,25 @@ router.post('/:id/assignments', authenticate, authorize('BUSINESS_OWNER'), async
       return res.status(404).json({ error: 'Project not found.' });
     }
 
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+    }
+
     const worker = await prisma.worker.findUnique({ where: { id: workerId } });
     if (!worker) {
       return res.status(404).json({ error: 'Worker not found.' });
+    }
+
+    // Ensure worker belongs to caller's company
+    if (worker.companyId !== req.user.companyId && worker.ownerId !== req.user.id) {
+      return res.status(403).json({ error: 'Cannot assign a worker belonging to another company.' });
     }
 
     // Check if already assigned
     const existingAssignment = await prisma.projectAssignment.findUnique({
       where: { projectId_workerId: { projectId: req.params.id, workerId } },
     });
+
     if (existingAssignment) {
       return res.status(409).json({ error: 'Worker is already assigned to this project.' });
     }
@@ -219,9 +295,14 @@ router.post('/:id/assignments', authenticate, authorize('BUSINESS_OWNER'), async
   }
 });
 
-// DELETE /api/projects/:id/assignments/:assignmentId
+// DELETE /api/projects/:id/assignments/:assignmentId - Remove assignment
 router.delete('/:id/assignments/:assignmentId', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project || (project.companyId !== req.user.companyId && project.createdById !== req.user.id)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     await prisma.projectAssignment.delete({ where: { id: req.params.assignmentId } });
     res.json({ message: 'Assignment removed.' });
   } catch (error) {
@@ -230,40 +311,19 @@ router.delete('/:id/assignments/:assignmentId', authenticate, authorize('BUSINES
   }
 });
 
-// Helper: Check and manage low-stock alerts
-async function syncLowStockAlert(materialId) {
-  const material = await prisma.material.findUnique({ where: { id: materialId } });
-  if (!material) return;
-
-  if (material.quantity <= material.minStockLevel) {
-    const existing = await prisma.lowStockAlert.findFirst({
-      where: { materialId, status: 'ACTIVE' },
-    });
-    if (!existing) {
-      await prisma.lowStockAlert.create({
-        data: {
-          materialId,
-          currentQuantity: material.quantity,
-          minStockLevel: material.minStockLevel,
-        },
-      });
-    } else {
-      await prisma.lowStockAlert.update({
-        where: { id: existing.id },
-        data: { currentQuantity: material.quantity },
-      });
-    }
-  } else {
-    await prisma.lowStockAlert.updateMany({
-      where: { materialId, status: 'ACTIVE' },
-      data: { status: 'RESOLVED', resolvedAt: new Date() },
-    });
-  }
-}
-
-// GET /api/projects/:id/materials - List allocated materials and total expenditure
+// GET /api/projects/:id/materials - List allocated materials
 router.get('/:id/materials', authenticate, async (req, res) => {
   try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found.' });
+    }
+
+    // Role verification
+    if (req.user.role === 'BUSINESS_OWNER' && project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const allocations = await prisma.projectMaterial.findMany({
       where: { projectId: req.params.id },
       include: { material: true },
@@ -271,7 +331,7 @@ router.get('/:id/materials', authenticate, async (req, res) => {
     });
 
     const totalCost = allocations.reduce((sum, item) => {
-      return sum + (item.quantity * (item.material?.costPerUnit || 0));
+      return sum + item.quantity * (item.material?.costPerUnit || 0);
     }, 0);
 
     const totalQuantity = allocations.reduce((sum, item) => sum + item.quantity, 0);
@@ -305,9 +365,18 @@ router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (
       return res.status(404).json({ error: 'Project not found.' });
     }
 
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. Project belongs to another company.' });
+    }
+
     const material = await prisma.material.findUnique({ where: { id: materialId } });
     if (!material) {
       return res.status(404).json({ error: 'Material not found.' });
+    }
+
+    // Prevent cross-company material allocation
+    if (material.companyId !== req.user.companyId && material.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Cannot allocate material belonging to another company.' });
     }
 
     if (material.status !== 'ACTIVE') {
@@ -323,15 +392,12 @@ router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (
     const previousQty = material.quantity;
     const newQty = previousQty - qty;
 
-    // Execute atomic allocation
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Decrement material stock
-      const updatedMat = await tx.material.update({
+      await tx.material.update({
         where: { id: materialId },
         data: { quantity: newQty },
       });
 
-      // 2. Create StockUpdate transaction audit record
       await tx.stockUpdate.create({
         data: {
           materialId,
@@ -344,7 +410,6 @@ router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (
         },
       });
 
-      // 3. Upsert ProjectMaterial
       const existing = await tx.projectMaterial.findUnique({
         where: { projectId_materialId: { projectId: req.params.id, materialId } },
       });
@@ -370,8 +435,7 @@ router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (
       return allocation;
     });
 
-    // Sync low-stock alerts
-    await syncLowStockAlert(materialId);
+    await syncLowStockAlert(materialId, req.user.companyId);
 
     res.status(201).json(result);
   } catch (error) {
@@ -380,7 +444,7 @@ router.post('/:id/materials', authenticate, authorize('BUSINESS_OWNER'), async (
   }
 });
 
-// DELETE /api/projects/:id/materials/:allocationId - Return material back to inventory
+// DELETE /api/projects/:id/materials/:allocationId - Return material to inventory
 router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const allocation = await prisma.projectMaterial.findUnique({
@@ -392,21 +456,22 @@ router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_
       return res.status(404).json({ error: 'Allocation not found.' });
     }
 
+    if (allocation.project.companyId !== req.user.companyId && allocation.project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const returnQty = allocation.quantity;
     const previousQty = allocation.material.quantity;
     const newQty = previousQty + returnQty;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Delete allocation
       await tx.projectMaterial.delete({ where: { id: req.params.allocationId } });
 
-      // 2. Return quantity to inventory
       await tx.material.update({
         where: { id: allocation.materialId },
         data: { quantity: newQty },
       });
 
-      // 3. Record stock update audit log
       await tx.stockUpdate.create({
         data: {
           materialId: allocation.materialId,
@@ -420,8 +485,7 @@ router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_
       });
     });
 
-    // Sync alerts
-    await syncLowStockAlert(allocation.materialId);
+    await syncLowStockAlert(allocation.materialId, req.user.companyId);
 
     res.json({ message: 'Material deallocated and returned to inventory.' });
   } catch (error) {
@@ -430,7 +494,7 @@ router.delete('/:id/materials/:allocationId', authenticate, authorize('BUSINESS_
   }
 });
 
-// DELETE /api/projects/:id - Delete project (Business Owner only)
+// DELETE /api/projects/:id - Delete project
 router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -439,7 +503,10 @@ router.delete('/:id', authenticate, authorize('BUSINESS_OWNER'), async (req, res
       return res.status(404).json({ error: 'Project not found.' });
     }
 
-    // Cascade cleanups
+    if (project.companyId !== req.user.companyId && project.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied. You cannot delete projects from another company.' });
+    }
+
     await prisma.$transaction([
       prisma.projectMaterial.deleteMany({ where: { projectId: id } }),
       prisma.projectAssignment.deleteMany({ where: { projectId: id } }),

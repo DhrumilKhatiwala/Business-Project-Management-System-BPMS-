@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../utils/prisma');
 
-// Authenticate JWT token
+// Authenticate JWT token and hydrate tenant context
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -22,6 +22,20 @@ const authenticate = async (req, res, next) => {
         phone: true,
         status: true,
         createdAt: true,
+        companyId: true,
+        ownerId: true,
+        company: {
+          select: { id: true, name: true, description: true, ownerId: true },
+        },
+        ownedCompany: {
+          select: { id: true, name: true, description: true, ownerId: true },
+        },
+        assignedOwner: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
+        worker: {
+          select: { id: true, position: true, skills: true, status: true, companyId: true, ownerId: true },
+        },
       },
     });
 
@@ -33,6 +47,39 @@ const authenticate = async (req, res, next) => {
       return res.status(403).json({ error: 'Account is deactivated.' });
     }
 
+    // Ensure Business Owner has a guaranteed company record
+    if (user.role === 'BUSINESS_OWNER') {
+      if (!user.companyId) {
+        if (user.ownedCompany) {
+          user.companyId = user.ownedCompany.id;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { companyId: user.ownedCompany.id },
+          });
+        } else {
+          const comp = await prisma.company.create({
+            data: {
+              name: `${user.fullName}'s Company`,
+              ownerId: user.id,
+            },
+          });
+          user.companyId = comp.id;
+          user.ownedCompany = comp;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { companyId: comp.id },
+          });
+        }
+      }
+    } else if (user.role === 'WORKER') {
+      if (!user.companyId && user.worker?.companyId) {
+        user.companyId = user.worker.companyId;
+      }
+      if (!user.ownerId && user.worker?.ownerId) {
+        user.ownerId = user.worker.ownerId;
+      }
+    }
+
     req.user = user;
     next();
   } catch (error) {
@@ -42,6 +89,7 @@ const authenticate = async (req, res, next) => {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expired.' });
     }
+    console.error('Auth middleware error:', error);
     return res.status(500).json({ error: 'Authentication failed.' });
   }
 };
@@ -59,4 +107,12 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { authenticate, authorize };
+// Helper: Scoping filter for database queries based on tenant / company
+function getTenantFilter(user) {
+  if (!user) return { companyId: '__NONE__' };
+  if (user.role === 'ADMIN') return {};
+  if (!user.companyId) return { companyId: '__UNASSIGNED__' };
+  return { companyId: user.companyId };
+}
+
+module.exports = { authenticate, authorize, getTenantFilter };

@@ -45,9 +45,20 @@ const fs = require('fs');
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
-  app.get('*', (req, res, next) => {
+  app.use((req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+} else {
+  // Friendly API status route when running as pure backend service
+  app.get('/', (req, res) => {
+    res.json({
+      name: 'Business Project Management System (BPMS) API',
+      status: 'online',
+      message: 'BPMS backend service is running successfully on Render.',
+      health: '/api/health',
+      timestamp: new Date().toISOString()
+    });
   });
 }
 
@@ -60,8 +71,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 BPMS Server running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 BPMS Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
